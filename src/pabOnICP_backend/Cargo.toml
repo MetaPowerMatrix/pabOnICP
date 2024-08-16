@@ -1,5 +1,5 @@
 [package]
-name = "pabOnICP_backend"
+name = "portal_canister"
 version = "0.1.0"
 edition = "2021"
 
