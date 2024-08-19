@@ -357,6 +357,21 @@ pub struct UserActiveRequest {
     pub action: String,
 }
 
+#[derive(Deserialize, CandidType, Serialize)]
+pub struct ImageGenRequest {
+    pub prompt: String,
+}
+#[derive(Deserialize, CandidType)]
+pub struct ImageGenResponse {
+    pub image_url: String,
+}
+
+#[derive(Deserialize, CandidType, Serialize)]
+pub struct MessageRequest {
+    pub message: String,
+    pub subject: String,
+    pub prompt: String,
+}
 
 pub fn get_event_subjects() -> Vec<&'static str>{
     vec![

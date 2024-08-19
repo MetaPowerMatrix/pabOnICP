@@ -159,7 +159,7 @@ static mut OWNER: Principal = Principal::anonymous();
 const WASI_MEMORY_ID: MemoryId = MemoryId::new(0);
 
 thread_local! {
-    static CALLEE: RefCell<Option<Principal>> = RefCell::new(None);
+    static CALLEE: RefCell<Option<Principal>> = const { RefCell::new(None) };
     static BATTERY_CALLEE: RefCell<HashMap<String, Principal>> = RefCell::new(HashMap::new());
 
     // The memory manager is used for simulating multiple memories.
@@ -185,7 +185,7 @@ fn _only_owner() {
 }
 fn _must_initialized() {
     unsafe {
-       if INITIALIZED != true {
+       if !INITIALIZED {
            ic_cdk::trap("uninitialized");
        }
     }
@@ -194,7 +194,7 @@ fn _must_initialized() {
 #[ic_cdk::update]
 fn initialize(name: String) -> Result<(), ()> {
    unsafe {
-       if INITIALIZED != false {
+       if INITIALIZED {
            ic_cdk::trap("initialized");
        }
 

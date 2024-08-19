@@ -1,11 +1,6 @@
 use metapower_framework::dao::http::send_http_post_request;
 use metapower_framework::{
-    EmptyRequest, AirdropRequest, AllPatosResponse, ChangeBalanceRequest, FollowKolRequest,
-    InjectHumanVoiceRequest, KolListResponse, KolRegistrationRequest, KolRelations, NamePros,
-    NameRequest, NameResponse, PatoInfoResponse, PatoOfPro, PatoOfProResponse,
-    PopulationRegistrationRequest, ProfessionalsResponse, RoomCreateRequest, RoomCreateResponse,
-    RoomInfo, RoomListResponse, SimpleRequest, SimpleResponse, SnIdPaire, SnRequest, SnResponse,
-    TokenRequest, TokenResponse, TopicChatHisResponse, TopicChatRequest, UserActiveRequest,
+    AirdropRequest, AllPatosResponse, ChangeBalanceRequest, EmptyRequest, FollowKolRequest, ImageGenRequest, InjectHumanVoiceRequest, KolListResponse, KolRegistrationRequest, KolRelations, MessageRequest, NamePros, NameRequest, NameResponse, PatoInfoResponse, PatoOfPro, PatoOfProResponse, PopulationRegistrationRequest, ProfessionalsResponse, RoomCreateRequest, RoomCreateResponse, RoomInfo, RoomListResponse, SimpleRequest, SimpleResponse, SnIdPaire, SnRequest, SnResponse, TokenRequest, TokenResponse, TopicChatHisResponse, TopicChatRequest, UserActiveRequest
 };
 use anyhow::{anyhow, Error};
 use metapower_framework::dao::crawler::download_image;
@@ -713,22 +708,17 @@ impl MetaPowerMatrixAgentService {
                                 last_talked_person = name.clone();
 
                                 let prompt = generate_prompt(curr_input, &prompt_lib_file);
-
-                                if let Ok(mut client) =
-                                    MetaPowerMatrixBatterySvcClient::connect(battery_address).await
-                                {
-                                    let req = MessageRequest {
-                                        message: String::default(),
-                                        subject: String::default(),
-                                        prompt,
-                                    };
-                                    match client.talk(req).await {
-                                        Ok(resp) => {
-                                            chat_messages.push(name + ":" + &resp.message.clone());
-                                        }
-                                        Err(e) => {
-                                            println!("topic talk error: {}", e);
-                                        }
+                                let req = serde_json::to_string(&MessageRequest {
+                                    message: String::default(),
+                                    subject: String::default(),
+                                    prompt,
+                                }).unwrap_or_default();
+                                match send_http_post_request(battery_address.to_string(), battery_address.to_string(), "agent_smith".to_string(), req).await{
+                                    Ok(resp) => {
+                                        chat_messages.push(name + ":" + &resp.clone());
+                                    }
+                                    Err(e) => {
+                                        println!("topic talk error: {}", e);
                                     }
                                 }
                             }
@@ -817,10 +807,10 @@ impl MetaPowerMatrixAgentService {
             "draw a picture according to the description below: {}",
             description
         );
-        let image_request = serde_json::to_string(ImageGenRequest { prompt })?;
+        let image_request = serde_json::to_string(&ImageGenRequest { prompt })?;
         match send_http_post_request(LLMCHAT_GRPC_REST_SERVER.to_string(), LLMCHAT_GRPC_REST_SERVER.to_string(), "agent_smith".to_string(), image_request).await{
             Ok(answer) => {
-                let image_url = answer.image_url.clone();
+                let image_url = answer;
                 let saved_local_file = format!("{}/game/{}", XFILES_LOCAL_DIR, image_file_name);
                 xfiles_link = format!("{}/game/{}", XFILES_SERVER, image_file_name);
                 match download_image(&image_url, &saved_local_file).await {
