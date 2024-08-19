@@ -1600,6 +1600,7 @@ dependencies = [
  "libc",
  "md5",
  "metapower_framework",
+ "rand",
  "reqwest",
  "serde",
  "serde_bytes",
