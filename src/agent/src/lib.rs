@@ -43,7 +43,7 @@ fn _only_owner() {
 }
 fn _must_initialized() {
     unsafe {
-       if INITIALIZED != true {
+       if !INITIALIZED {
            ic_cdk::trap("uninitialized");
        }
     }
@@ -52,7 +52,7 @@ fn _must_initialized() {
 #[ic_cdk::update]
 fn initialize(name: String) -> Result<(), ()> {
    unsafe {
-       if INITIALIZED != false {
+       if INITIALIZED {
            ic_cdk::trap("initialized");
        }
 
