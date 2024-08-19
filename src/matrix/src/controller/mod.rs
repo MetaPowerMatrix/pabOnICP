@@ -20,8 +20,6 @@ use metapower_framework::{
 use metapower_framework::{
     get_past_date_str, log, AirdropRequest, AllPatosResponse, EmptyRequest, NameResponse, PatoLocation, SimpleResponse
 };
-use rand::prelude::SliceRandom;
-use rand::{thread_rng, Rng};
 use uuid::Uuid;
 
 #[derive(Debug, Default)]
@@ -161,8 +159,8 @@ impl MetaPowerMatrixControllerService {
     }
     fn create_pato_iss(&self, id: String, name: String) -> Result<(), Error> {
         let personas_file_path = self.find_template_dirs();
-        let mut rng = thread_rng();
-        let persona = personas_file_path.choose(&mut rng).unwrap();
+        // let mut rng = thread_rng();
+        let persona = personas_file_path.first().unwrap();
         let orig_persona_file = persona.join("bootstrap_memory/scratch.json");
         let dest_persona_file = format!("{}/{}/db/scratch.json", AI_PATO_DIR, id);
         let orig_name = persona.file_name().unwrap().to_str().unwrap();
