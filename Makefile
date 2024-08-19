@@ -1,5 +1,3 @@
-export RUSTFLAGS=$RUSTFLAGS' -C target-feature=+simd128'
-
 all: matrix agent
 .PHONY: all
 
