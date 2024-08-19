@@ -1,38 +1,15 @@
 pub mod controller;
 pub mod runner;
 
-use std::{cell::RefCell, path::Path};
-
+use std::{cell::RefCell, collections::HashMap};
 use candid::{CandidType, Principal};
-use metapower_framework::AI_MATRIX_DIR;
+use controller::MetaPowerMatrixControllerService;
+use ic_cdk::{caller, id};
+use ic_stable_structures::{memory_manager::{MemoryId, MemoryManager}, DefaultMemoryImpl};
+use metapower_framework::EmptyRequest;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Deserialize, Serialize)]
-pub struct MapStatus {
-    pub sn: i64,
-    pub patos: Vec<String>,
-}
-
-fn self_check() -> bool {
-    let mut path_check = true;
-
-    let check_paths = [
-        format!("{}/bin", AI_MATRIX_DIR),
-        format!("{}/db", AI_MATRIX_DIR),
-        format!("{}/log", AI_MATRIX_DIR),
-        format!("{}/substance", AI_MATRIX_DIR),
-    ];
-
-    check_paths.iter().for_each(|path| {
-        if !Path::new(path.as_str()).exists() {
-            path_check = false;
-        }
-    });
-
-    path_check
-}
-
-
+#[derive(Deserialize, CandidType)]
 pub struct EmptyResponse {}
 
 #[derive(Deserialize, CandidType)]
@@ -72,7 +49,7 @@ pub struct SharedKnowledgesResponse {
     pub books: Vec<Knowledge>,
 }
 
-#[derive(Deserialize, CandidType)]
+#[derive(Deserialize, CandidType, Debug)]
 pub struct HotAi {
     pub id: String,
     pub name: String,
@@ -164,14 +141,130 @@ pub struct PlaceResonse {
     pub sn: Vec<i64>,
 }
 
+#[derive(Deserialize, CandidType)]
+pub struct BatteryInfo {
+    pub sn: i64,
+    pub id: String,
+    pub canister: String,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct MapStatus {
+    pub sn: i64,
+    pub patos: Vec<String>,
+}
+
+static mut INITIALIZED: bool = false;
+static mut OWNER: Principal = Principal::anonymous();
+const WASI_MEMORY_ID: MemoryId = MemoryId::new(0);
+
 thread_local! {
     static CALLEE: RefCell<Option<Principal>> = RefCell::new(None);
+    static BATTERY_CALLEE: RefCell<HashMap<String, Principal>> = RefCell::new(HashMap::new());
+
+    // The memory manager is used for simulating multiple memories.
+    static MEMORY_MANAGER: RefCell<MemoryManager<DefaultMemoryImpl>> =
+        RefCell::new(MemoryManager::init(DefaultMemoryImpl::default()));
+}
+
+#[ic_cdk::init]
+fn init() {
+    unsafe {
+        OWNER = caller();
+    }
+    let wasi_memory = MEMORY_MANAGER.with(|m| m.borrow().get(WASI_MEMORY_ID));
+    ic_wasi_polyfill::init_with_memory(&[0u8; 32], &[], wasi_memory);
+}
+
+fn _only_owner() {
+    unsafe {
+       if OWNER != caller() {
+           ic_cdk::trap("not owner");
+       }
+    }
+}
+fn _must_initialized() {
+    unsafe {
+       if INITIALIZED != true {
+           ic_cdk::trap("uninitialized");
+       }
+    }
 }
 
 #[ic_cdk::update]
-pub fn setup_callee(id: Principal) {
+fn initialize(name: String) -> Result<(), ()> {
+   unsafe {
+       if INITIALIZED != false {
+           ic_cdk::trap("initialized");
+       }
+
+       INITIALIZED = true;
+       OWNER = caller();
+   }
+
+   Ok(())
+}
+
+#[ic_cdk::query]
+pub fn hi() -> String{
+    _must_initialized();
+    unsafe {
+        format!("Hi, {}; {};", OWNER, id())
+    }
+}
+
+#[ic_cdk::update]
+pub fn setup_agent_canister(_id: String, agent_canister: Principal) {
     CALLEE.with(|callee| {
-        *callee.borrow_mut() = Some(id);
+        *callee.borrow_mut() = Some(agent_canister);
     });
 }
 
+#[ic_cdk::update]
+pub fn setup_battery_canister(id: String, canister: Principal) {
+    BATTERY_CALLEE.with(|callee| {
+        callee.borrow_mut().entry(id).and_modify(|v| *v = canister).or_insert(canister);
+    });
+}
+
+#[ic_cdk::update]
+async fn request_create_pato(name: String) -> Result<CreateResonse, String>{
+    _must_initialized();
+    let request = CreateRequest {
+        name,
+    };
+    match MetaPowerMatrixControllerService::default().request_create_pato(request).await{
+        Ok(response) => Ok(response),
+        Err(err) => Err(err.to_string()),
+    }
+}
+
+#[ic_cdk::query]
+async fn request_hot_ai() -> Result<HotAiResponse, String>{
+    _must_initialized();
+    let request = EmptyRequest {    };
+    match MetaPowerMatrixControllerService::default().request_hot_ai(request).await{
+        Ok(response) => Ok(response),
+        Err(err) => Err(err.to_string()),
+    }
+}
+
+#[ic_cdk::query]
+async fn request_hot_topics() -> Result<HotTopicResponse, String>{
+    _must_initialized();
+    let request = EmptyRequest {    };
+    match MetaPowerMatrixControllerService::default().request_hot_topics(request).await{
+        Ok(response) => Ok(response),
+        Err(err) => Err(err.to_string()),
+    }
+}
+
+#[ic_cdk::query]
+async fn request_shared_knowledges() -> Result<SharedKnowledgesResponse, String>{
+    _must_initialized();
+    let request = EmptyRequest {    };
+    match MetaPowerMatrixControllerService::default().request_shared_knowledges(request).await{
+        Ok(response) => Ok(response),
+        Err(err) => Err(err.to_string()),
+    }
+}

@@ -1,3 +1,7 @@
+use std::cell::RefCell;
+use std::sync::atomic::AtomicU64;
+use std::sync::atomic::Ordering;
+use std::time::Duration;
 use std::time::SystemTime;
 use std::env;
 use std::fs;
@@ -6,14 +10,66 @@ use std::os::unix::process::CommandExt;
 use std::path::{Path, PathBuf};
 use std::io::Write;
 use std::process::Command;
-use metapower_framework::service::metapowermatrix_agent_mod::agent_grpc::{
-    meta_power_matrix_agent_svc_client::MetaPowerMatrixAgentSvcClient,
-    EmptyRequest
-};
-use metapower_framework::{log, PatoLocation, AGENT_GRPC_REST_SERVER, AI_MATRIX_DIR, AI_PATO_DIR, TICK, HAVEAREST};
+use ic_cdk::api::call;
+use ic_cdk_timers::TimerId;
+use metapower_framework::AllPatosResponse;
+use metapower_framework::{log, PatoLocation, AI_MATRIX_DIR, AI_PATO_DIR, TICK, HAVEAREST};
 use sysinfo::System;
 use tokio::time::sleep;
 use crate::MapStatus;
+use crate::CALLEE;
+
+/// Initial canister balance to track the cycles usage.
+static INITIAL_CANISTER_BALANCE: AtomicU64 = AtomicU64::new(0);
+/// Canister cycles usage tracked in the periodic task.
+static CYCLES_USED: AtomicU64 = AtomicU64::new(0);
+
+thread_local! {
+    /// The global vector to keep multiple timer IDs.
+    static TIMER_IDS: RefCell<Vec<TimerId>> = RefCell::new(Vec::new());
+}
+
+fn track_cycles_used() {
+    // Update the `INITIAL_CANISTER_BALANCE` if needed.
+    let current_canister_balance = ic_cdk::api::canister_balance();
+    INITIAL_CANISTER_BALANCE.fetch_max(current_canister_balance, Ordering::Relaxed);
+    // Store the difference between the initial and the current balance.
+    let cycles_used = INITIAL_CANISTER_BALANCE.load(Ordering::Relaxed) - current_canister_balance;
+    CYCLES_USED.store(cycles_used, Ordering::Relaxed);
+}
+
+#[ic_cdk_macros::init]
+fn init(min_interval_secs: u64) {
+    start_with_interval_secs(min_interval_secs);
+}
+#[ic_cdk_macros::query]
+fn cycles_used() -> u64 {
+    CYCLES_USED.load(Ordering::Relaxed)
+}
+#[ic_cdk_macros::update]
+fn stop() {
+    TIMER_IDS.with(|timer_ids| {
+        if let Some(timer_id) = timer_ids.borrow_mut().pop() {
+            ic_cdk::println!("Timer canister: Stopping timer ID {timer_id:?}...");
+            // It's safe to clear non-existent timer IDs.
+            ic_cdk_timers::clear_timer(timer_id);
+        }
+    });
+}
+#[ic_cdk_macros::update]
+fn start_with_interval_secs(secs: u64) {
+    let secs = Duration::from_secs(secs);
+    ic_cdk::println!("Timer canister: Starting a new timer with {secs:?} interval...");
+    // Schedule a new periodic task to increment the counter.
+    let timer_id = ic_cdk_timers::set_timer_interval(secs, || MatrixRunner::default().run_loop());
+    // Add the timer ID to the global vector.
+    TIMER_IDS.with(|timer_ids| timer_ids.borrow_mut().push(timer_id));
+
+    // To drive an async function to completion inside the timer handler,
+    // use `ic_cdk::spawn()`, for example:
+    // ic_cdk_timers::set_timer_interval(interval, || ic_cdk::spawn(async_function()));
+}
+
 
 #[derive(Debug)]
 pub struct MatrixRunner{
@@ -141,34 +197,37 @@ impl MatrixRunner {
             }
         }
 
-        if let Ok(mut client) = MetaPowerMatrixAgentSvcClient::connect(AGENT_GRPC_REST_SERVER).await {
-            let request = EmptyRequest{};
-            if let Ok(patos_resp) = client.request_for_all_patos(request).await{
-                let patos = patos_resp.get_ref().pato_sn_id.clone();
-                for pato in patos {
-                    let is_running = cmds.iter().any(|c| (*c).contains(&pato.id));
-                    if !is_running {
-                        if let Err(e) = self.run_battey(pato.id.clone(), pato.sn.parse::<u64>().unwrap_or_default()){
-                            println!("run_battey error: {}", e);
-                        }
-                        log!("battery life reload for pato: {}", pato.id);
-                        sleep(std::time::Duration::from_secs(TICK * HAVEAREST)).await;
-                    }
-                    sleep(std::time::Duration::from_secs(5)).await;
-                }
+        let callee = CALLEE.with(|callee| callee.borrow().as_ref().unwrap().clone());
+
+        let (patos_resp,): (AllPatosResponse,) = match call::call(callee.clone(), "request_all_patos", ()).await {
+            Ok(response) => response,
+            Err((code, msg)) => {
+                println!("request_all_patos失败: {}: {}", code as u8, msg);
+                return;
             }
+        };
+
+        let patos = patos_resp.pato_sn_id;
+        for pato in patos {
+            let is_running = cmds.iter().any(|c| (*c).contains(&pato.id));
+            if !is_running {
+                if let Err(e) = self.run_battey(pato.id.clone(), pato.sn.parse::<u64>().unwrap_or_default()){
+                    println!("run_battey error: {}", e);
+                }
+                log!("battery life reload for pato: {}", pato.id);
+                sleep(std::time::Duration::from_secs(TICK * HAVEAREST)).await;
+            }
+            sleep(std::time::Duration::from_secs(5)).await;
         }
     }
-    pub async fn run_loop(&self) {
+    
+    pub fn run_loop(&self) {
         loop {
             log!("matrix runner new round started.");
             self.increase_tick();
             self.refresh_map();
-            self.check_battery_life().await;
-    
-            sleep(std::time::Duration::from_secs(TICK)).await;
+            // self.check_battery_life().await;
         }
     }
-    
 }
 
