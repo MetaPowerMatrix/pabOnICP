@@ -74,12 +74,12 @@ pub fn hi() -> String{
     }
 }
 
-// #[ic_cdk::query]
-// pub fn get_population_quantities() -> u64 {
-//     unsafe {
-//         POPULATION_QUANTITIES
-//     }
-// }
+#[ic_cdk::query]
+pub fn get_population_quantities() -> u64 {
+    unsafe {
+        POPULATION_QUANTITIES
+    }
+}
 
 #[ic_cdk::update]
 async fn request_airdrop(amount: f32, id: String) -> Result<SimpleResponse, String> {
