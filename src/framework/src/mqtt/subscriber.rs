@@ -9,7 +9,6 @@ use std::{
 use anyhow::Error;
 
 use crate::{log, mqtt::{METAPOWER_CLIENT, METAPOWER_QOS}, METAPOWER_BROKER};
-extern crate paho_mqtt as mqtt;
 
 // Reconnect to the broker when connection is lost.
 fn try_reconnect(cli: &mqtt::Client) -> bool

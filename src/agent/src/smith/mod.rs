@@ -19,7 +19,6 @@ use std::path::Path;
 use std::time::SystemTime;
 use std::{env, io};
 use std::{fs::File, io::Write};
-use tokio::time::sleep;
 
 //TO-DO-IC-Storage
 fn generate_prompt(curr_input: Vec<String>, prompt_lib_file: &str) -> String {
@@ -667,7 +666,6 @@ impl MetaPowerMatrixAgentService {
             }
         }
 
-        tokio::spawn(async move {
             let select_pro_table = "select sn, id, name from pato";
             match MetapowerSqlite3::query_db(select_pro_table, vec!["id", "sn", "name"]) {
                 Ok(records) => {
@@ -722,7 +720,6 @@ impl MetaPowerMatrixAgentService {
                                     }
                                 }
                             }
-                            sleep(std::time::Duration::from_secs(TICK * 2)).await;
                         }
                         let mut hasher = sha1::Sha1::new();
                         hasher.update(&topic);
@@ -750,7 +747,6 @@ impl MetaPowerMatrixAgentService {
                     println!("Error: {}", e);
                 }
             }
-        });
 
         Ok(EmptyRequest {})
     }
