@@ -26,3 +26,4 @@ hex = "0.4.3"
 eyre = "0.6.8"
 sha1 = "0.10.0"
 uuid = { version = "1.0.0", features = ["serde", "v4"] }
+getrandom = { version = "0.2", features = ["js"] }
