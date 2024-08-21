@@ -13,7 +13,6 @@ ic-cdk = "0.13"
 ic-cdk-timers = "0.7" # Feel free to remove this dependency if you don't need timers
 ic-cdk-macros = "0.13.2"
 ic-stable-structures = "0.6.5"
-ic-wasi-polyfill = "0.5.0"
 anyhow = "1.0.38"
 notify = "6.0.1"
 serde = "1.0.111"
