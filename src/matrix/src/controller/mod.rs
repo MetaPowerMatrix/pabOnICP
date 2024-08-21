@@ -1,13 +1,10 @@
-use std::borrow::{Borrow, BorrowMut, Cow};
+use std::borrow::Cow;
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
-use std::io::{BufRead, BufReader, Read, Write};
 use std::ops::Deref;
-use std::time::SystemTime;
-use std::{env, io};
-use std::path::{Path, PathBuf};
 use std::vec;
 use anyhow::Error;
+use ic_stable_structures::storable::Bound;
 use ic_stable_structures::{StableCell, DefaultMemoryImpl, RestrictedMemory, StableBTreeMap, StableLog, Storable};
 use ic_stable_structures::memory_manager::{
     MemoryId,
@@ -21,11 +18,9 @@ use crate::{
     CALLEE,
 };
 use ic_cdk::api::call::call;
+use metapower_framework::dao::sqlite::MetapowerSqlite3;
 use metapower_framework::{
-    dao::sqlite::MetapowerSqlite3, AI_PATO_DIR,
-};
-use metapower_framework::{
-    get_past_date_str, log, AirdropRequest, AllPatosResponse, EmptyRequest, NameResponse, SimpleResponse
+    log, AirdropRequest, AllPatosResponse, EmptyRequest, NameResponse, SimpleResponse
 };
 use uuid::Uuid;
 
@@ -44,31 +39,29 @@ const METADATA_PAGES: u64 = 16;
 const PERSONA_PAGES: u64 = 1;
 
 #[derive(Default)]
-struct Cbor<T>(pub T)
-where T: serde::Serialize + serde::de::DeserializeOwned;
+struct Cbor<T>(pub T) where T: serde::Serialize + serde::de::DeserializeOwned;
 
-impl<T> std::ops::Deref for Cbor<T>
-where T: serde::Serialize + serde::de::DeserializeOwned
+impl<T> std::ops::Deref for Cbor<T> where T: serde::Serialize + serde::de::DeserializeOwned
 {
   type Target = T;
 
   fn deref(&self) -> &Self::Target { &self.0 }
 }
 
-impl<T> Storable for Cbor<T>
-where T: serde::Serialize + serde::de::DeserializeOwned
+impl<T> Storable for Cbor<T> where T: serde::Serialize + serde::de::DeserializeOwned
 {
-  fn to_bytes(&self) -> Cow<[u8]> {
-    let mut buf = vec![];
-    ciborium::ser::into_writer(&self.0, &mut buf).unwrap();
-    Cow::Owned(buf)
-  }
 
-  fn from_bytes(bytes: Cow<[u8]>) -> Self {
-    Self(ciborium::de::from_reader(bytes.as_ref()).unwrap())
-  }
-  
-  const BOUND: ic_stable_structures::storable::Bound;
+    const BOUND: Bound = Bound::Unbounded;
+
+    fn to_bytes(&self) -> Cow<[u8]> {
+        let mut buf = vec![];
+        ciborium::ser::into_writer(&self.0, &mut buf).unwrap();
+        Cow::Owned(buf)
+    }
+
+    fn from_bytes(bytes: Cow<[u8]>) -> Self {
+        Self(ciborium::de::from_reader(bytes.as_ref()).unwrap())
+    }
 }
 
 thread_local! {
@@ -192,24 +185,6 @@ impl MetaPowerMatrixControllerService {
 
         books
     }
-    fn count_pato_sessions(&self, id: String, count_days: u64) -> i64 {
-        let mut session_count = 0;
-        for i in 0..count_days {
-            let date_string = get_past_date_str(i);
-            let session_dir = format!("{}/{}/db/{}", AI_PATO_DIR, id, date_string);
-            log!("searching {}", session_dir);
-            let path = Path::new(&session_dir);
-            if path.exists() && path.is_dir() {
-                for entry in fs::read_dir(path).unwrap().flatten() {
-                    let path = entry.path();
-                    if path.is_dir() {
-                        session_count += 1;
-                    }
-                }
-            }
-        }
-        session_count
-    }
     fn create_pato_iss(&self, id: String, name: String, default_person: String) -> Result<(), Error> {
         PERSONA.with(|v|{
             v.borrow_mut().set(Cbor(default_person));
@@ -322,11 +297,10 @@ impl MetaPowerMatrixControllerService {
         for pato in patos {
             for name_pro in resp.name_pros.iter() {
                 if name_pro.id == pato.id {
-                    let sessions = self.count_pato_sessions(pato.id.clone(), 3);
                     let info = HotAi {
                         id: pato.id.clone(),
                         name: name_pro.name.clone(),
-                        talks: sessions as i32,
+                        talks: 1,
                         pros: name_pro.pros.join(","),
                     };
                     all_ais.push(info);

@@ -2,8 +2,6 @@ use std::cell::RefCell;
 use std::sync::atomic::AtomicU64;
 use std::sync::atomic::Ordering;
 use std::time::Duration;
-use std::time::SystemTime;
-use std::env;
 use std::fs;
 use std::fs::File;
 use std::os::unix::process::CommandExt;
@@ -15,7 +13,6 @@ use ic_cdk_timers::TimerId;
 use metapower_framework::AllPatosResponse;
 use metapower_framework::{log, PatoLocation, AI_MATRIX_DIR, AI_PATO_DIR, TICK, HAVEAREST};
 use sysinfo::System;
-use tokio::time::sleep;
 use crate::MapStatus;
 use crate::CALLEE;
 
@@ -215,9 +212,7 @@ impl MatrixRunner {
                     println!("run_battey error: {}", e);
                 }
                 log!("battery life reload for pato: {}", pato.id);
-                sleep(std::time::Duration::from_secs(TICK * HAVEAREST)).await;
             }
-            sleep(std::time::Duration::from_secs(5)).await;
         }
     }
     

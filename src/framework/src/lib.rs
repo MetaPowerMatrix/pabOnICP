@@ -2,7 +2,9 @@ pub mod dao;
 pub mod prompt;
 pub mod mqtt;
 
-use std::env;
+pub extern crate ic_canister_log;
+pub extern crate chrono;
+
 use std::{fs, path::Path, time::SystemTime};
 use candid::CandidType;
 use serde::de::DeserializeOwned;
@@ -476,19 +478,18 @@ pub fn read_and_writeback_json_file<T: DeserializeOwned + Serialize>(file_path: 
     Ok(())
 }
 
+
 #[macro_export]
 macro_rules! log {
     ($fmt:literal $(, $($arg:tt)+)?) => {
-        let exe = env::current_exe().unwrap();
-        let process_name = exe.file_name().unwrap().to_str().unwrap();
-        let now = SystemTime::now();
-        let since_epoch = now.duration_since(SystemTime::UNIX_EPOCH).unwrap();
-        let timestamp = since_epoch.as_secs() as u64;
+        {
+            $crate::ic_canister_log::declare_log_buffer!(name = LOG, capacity = 100);
 
-        let formatted_msg = format!("[{}][{}]{}", timestamp, process_name, format_args!($fmt $(, $($arg)+)?));
-
-        if let Err(e) = writeln!(&mut std::io::stderr(), "{}", formatted_msg) {
-            eprintln!("Error writing to stderr: {}", e);
+            let system_time = std::time::SystemTime::now();
+            let datetime: $crate::chrono::DateTime<$crate::chrono::Utc> = system_time.into();
+            let formatted_msg = format!("[{}][{}]{}", datetime.format("%Y-%m-%d %H:%M").to_string(), ic_cdk::id(), format_args!($fmt $(, $($arg)+)?));
+    
+            $crate::ic_canister_log::log!(LOG, "{}", formatted_msg);    
         }
     };
 }
