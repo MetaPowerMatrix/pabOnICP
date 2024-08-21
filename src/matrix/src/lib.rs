@@ -161,10 +161,6 @@ const WASI_MEMORY_ID: MemoryId = MemoryId::new(0);
 thread_local! {
     static CALLEE: RefCell<Option<Principal>> = const { RefCell::new(None) };
     static BATTERY_CALLEE: RefCell<HashMap<String, Principal>> = RefCell::new(HashMap::new());
-
-    // The memory manager is used for simulating multiple memories.
-    static MEMORY_MANAGER: RefCell<MemoryManager<DefaultMemoryImpl>> =
-        RefCell::new(MemoryManager::init(DefaultMemoryImpl::default()));
 }
 
 #[ic_cdk::init]
@@ -172,8 +168,6 @@ fn init() {
     unsafe {
         OWNER = caller();
     }
-    let wasi_memory = MEMORY_MANAGER.with(|m| m.borrow().get(WASI_MEMORY_ID));
-    ic_wasi_polyfill::init_with_memory(&[0u8; 32], &[], wasi_memory);
 }
 
 fn _only_owner() {

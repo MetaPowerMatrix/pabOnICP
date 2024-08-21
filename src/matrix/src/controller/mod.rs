@@ -1,13 +1,20 @@
+use std::borrow::{Borrow, BorrowMut, Cow};
+use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
-use std::fs::{File, OpenOptions};
 use std::io::{BufRead, BufReader, Read, Write};
+use std::ops::Deref;
 use std::time::SystemTime;
 use std::{env, io};
 use std::path::{Path, PathBuf};
 use std::vec;
-use std::fs;
 use anyhow::Error;
-
+use ic_stable_structures::{StableCell, DefaultMemoryImpl, RestrictedMemory, StableBTreeMap, StableLog, Storable};
+use ic_stable_structures::memory_manager::{
+    MemoryId,
+    MemoryManager as MM,
+    VirtualMemory,
+  };
+  
 use crate::{
     CreateRequest, CreateResonse, EmptyResponse, HotAi, HotAiResponse,
     HotTopicResponse, Knowledge, LoginRequest, SharedKnowledgesResponse, 
@@ -15,14 +22,102 @@ use crate::{
 };
 use ic_cdk::api::call::call;
 use metapower_framework::{
-    dao::sqlite::MetapowerSqlite3, AI_MATRIX_DIR, AI_PATO_DIR,
+    dao::sqlite::MetapowerSqlite3, AI_PATO_DIR,
 };
 use metapower_framework::{
-    get_past_date_str, log, AirdropRequest, AllPatosResponse, EmptyRequest, NameResponse, PatoLocation, SimpleResponse
+    get_past_date_str, log, AirdropRequest, AllPatosResponse, EmptyRequest, NameResponse, SimpleResponse
 };
-use rand::prelude::SliceRandom;
-use rand::{thread_rng, Rng};
 use uuid::Uuid;
+
+type RM = RestrictedMemory<DefaultMemoryImpl>;
+type VM = VirtualMemory<RM>;
+
+const KNOWLEDGES_MEM_ID: MemoryId = MemoryId::new(0);
+const LOG_NAME_INDX_MEM_ID: MemoryId = MemoryId::new(1);
+const LOG_NAME_DATA_MEM_ID: MemoryId = MemoryId::new(2);
+const SUMMARY_MEM_ID: MemoryId = MemoryId::new(3);
+const LOG_SESSION_INDX_MEM_ID: MemoryId = MemoryId::new(4);
+const LOG_SESSION_DATA_MEM_ID: MemoryId = MemoryId::new(5);
+const LOG_TOPICS_INDX_MEM_ID: MemoryId = MemoryId::new(6);
+const LOG_TOPICS_DATA_MEM_ID: MemoryId = MemoryId::new(7);
+const METADATA_PAGES: u64 = 16;
+const PERSONA_PAGES: u64 = 1;
+
+#[derive(Default)]
+struct Cbor<T>(pub T)
+where T: serde::Serialize + serde::de::DeserializeOwned;
+
+impl<T> std::ops::Deref for Cbor<T>
+where T: serde::Serialize + serde::de::DeserializeOwned
+{
+  type Target = T;
+
+  fn deref(&self) -> &Self::Target { &self.0 }
+}
+
+impl<T> Storable for Cbor<T>
+where T: serde::Serialize + serde::de::DeserializeOwned
+{
+  fn to_bytes(&self) -> Cow<[u8]> {
+    let mut buf = vec![];
+    ciborium::ser::into_writer(&self.0, &mut buf).unwrap();
+    Cow::Owned(buf)
+  }
+
+  fn from_bytes(bytes: Cow<[u8]>) -> Self {
+    Self(ciborium::de::from_reader(bytes.as_ref()).unwrap())
+  }
+  
+  const BOUND: ic_stable_structures::storable::Bound;
+}
+
+thread_local! {
+    static MEMORY_MANAGER: RefCell<MM<RM>> = RefCell::new(
+        MM::init(RM::new(DefaultMemoryImpl::default(), METADATA_PAGES..u64::MAX))
+        );
+    static PERSONA: RefCell<StableCell<Cbor<String>, RM>> =
+        RefCell::new(StableCell::init(
+            RM::new(DefaultMemoryImpl::default(), 0..PERSONA_PAGES),
+            Cbor::default(),
+        ).expect("failed to initialize the metadata cell")
+        );          
+    static DEFAULT_PERSONA:  RefCell<StableCell<Cbor<String>, RM>> =
+        RefCell::new(StableCell::init(
+            RM::new(DefaultMemoryImpl::default(), 0..PERSONA_PAGES),
+            Cbor::default(),
+        ).expect("failed to initialize the metadata cell")
+        );  
+
+    static PATO_NAME: RefCell<StableLog<Cbor<String>, VM, VM>> =
+        MEMORY_MANAGER.with(|mm| {
+          RefCell::new(StableLog::init(
+            mm.borrow().get(LOG_NAME_INDX_MEM_ID),
+            mm.borrow().get(LOG_NAME_DATA_MEM_ID),
+          ).expect("failed to initialize the name record"))
+        });
+    static SESSIONS: RefCell<StableLog<String, VM, VM>> =
+        MEMORY_MANAGER.with(|mm| {
+          RefCell::new(StableLog::init(
+            mm.borrow().get(LOG_SESSION_INDX_MEM_ID),
+            mm.borrow().get(LOG_SESSION_DATA_MEM_ID),
+          ).expect("failed to initialize the session record"))
+        });
+    static TOPICS: RefCell<StableLog<String, VM, VM>> =
+        MEMORY_MANAGER.with(|mm| {
+          RefCell::new(StableLog::init(
+            mm.borrow().get(LOG_TOPICS_INDX_MEM_ID),
+            mm.borrow().get(LOG_TOPICS_DATA_MEM_ID),
+          ).expect("failed to initialize the session record"))
+        });
+    static KNOWLEDGES: RefCell<StableBTreeMap<String, String, VM>> =
+        MEMORY_MANAGER.with(|mm| {
+          RefCell::new(StableBTreeMap::init(mm.borrow().get(KNOWLEDGES_MEM_ID)))
+        });        
+    static SUMMARY: RefCell<StableBTreeMap<String, String, VM>> =
+        MEMORY_MANAGER.with(|mm| {
+          RefCell::new(StableBTreeMap::init(mm.borrow().get(SUMMARY_MEM_ID)))
+        });        
+}
 
 #[derive(Debug, Default)]
 pub struct MetaPowerMatrixControllerService {}
@@ -54,15 +149,8 @@ impl MetaPowerMatrixControllerService {
 
         Ok(())
     }
-    fn update_name_file(&self, id: String, name: String) -> Result<(), Error> {
-        let namefile = format!("{}/{}/db/name.txt", AI_PATO_DIR, id);
-        let mut file = OpenOptions::new()
-            .append(true)
-            .create(true)
-            .open(namefile)?;
-
-        writeln!(file, "{}", name)?;
-
+    fn update_name_file(&self, _: String, name: String) -> Result<(), Error> {
+        PATO_NAME.with(|v| v.borrow_mut().append(&Cbor(name)));
         Ok(())
     }
     async fn prepare_pato_db(&self, id: String, name: String) -> Result<i64, String> {
@@ -96,13 +184,12 @@ impl MetaPowerMatrixControllerService {
     }
     fn get_pato_shared_books(&self, id: String) -> Vec<String> {
         let mut books: Vec<String> = vec![];
-        let name_file = format!("{}/{}/knowledge/shared.txt", AI_PATO_DIR, id);
-        if let Ok(file) = File::open(name_file) {
-            let reader = BufReader::new(file);
-            for line in reader.lines() {
-                books.push(line.unwrap_or_default());
+        KNOWLEDGES.with(|item| 
+            for (_, v) in item.borrow().iter(){
+                books.push(v)
             }
-        }
+        );
+
         books
     }
     fn count_pato_sessions(&self, id: String, count_days: u64) -> i64 {
@@ -123,83 +210,10 @@ impl MetaPowerMatrixControllerService {
         }
         session_count
     }
-    fn find_template_dirs(&self) -> Vec<PathBuf> {
-        let mut db_dirs = Vec::new();
-        let template_file_path = format!("{}/template/personas", AI_MATRIX_DIR);
-        let path = Path::new(template_file_path.as_str());
-        if path.is_dir() {
-            for entry in fs::read_dir(path).unwrap().flatten() {
-                let path = entry.path();
-                if path.is_dir() {
-                    db_dirs.push(path);
-                }
-            }
-        }
-        db_dirs
-    }
-    fn find_events(&self, id: String, count_days: u64) -> Vec<String> {
-        let mut lines = vec![];
-        for i in 0..count_days {
-            let date_string = get_past_date_str(i);
-            let event_file = format!("{}/{}/db/event_{}.txt", AI_PATO_DIR, id, date_string);
-            if let Ok(file) = File::open(event_file) {
-                let reader = io::BufReader::new(file);
-                for line in reader.lines().map_while(Result::ok) {
-                    let topic = line
-                        .split('#')
-                        .map(|t| t.to_owned())
-                        .collect::<Vec<String>>();
-                    if topic.len() > 1 {
-                        lines.push(topic[0].clone());
-                    } else {
-                        lines.push(line);
-                    }
-                }
-            }
-        }
-        lines
-    }
-    fn create_pato_iss(&self, id: String, name: String) -> Result<(), Error> {
-        let personas_file_path = self.find_template_dirs();
-        let mut rng = thread_rng();
-        let persona = personas_file_path.choose(&mut rng).unwrap();
-        let orig_persona_file = persona.join("bootstrap_memory/scratch.json");
-        let dest_persona_file = format!("{}/{}/db/scratch.json", AI_PATO_DIR, id);
-        let orig_name = persona.file_name().unwrap().to_str().unwrap();
-
-        match File::open(&orig_persona_file) {
-            Ok(file) => {
-                let reader = BufReader::new(file);
-
-                // Read the contents of the file into a string
-                let mut contents = String::new();
-                for line in reader.lines() {
-                    contents.push_str(&line.unwrap());
-                }
-
-                // Replace all occurrences of the old string with the new string
-                let new_contents = contents.replace(orig_name, &name);
-
-                // Open the output file for writing
-                match OpenOptions::new()
-                    .write(true)
-                    .create(true)
-                    .truncate(true)
-                    .open(&dest_persona_file)
-                {
-                    Ok(mut file) => {
-                        // Write the modified string to the output file
-                        let _ = file.write_all(new_contents.as_bytes());
-                    }
-                    Err(e) => {
-                        log!("{}文件写入失败: {}", dest_persona_file, e);
-                    }
-                }
-            }
-            Err(e) => {
-                log!("{:?}文件打开失败: {}", &orig_persona_file, e);
-            }
-        }
+    fn create_pato_iss(&self, id: String, name: String, default_person: String) -> Result<(), Error> {
+        PERSONA.with(|v|{
+            v.borrow_mut().set(Cbor(default_person));
+        });
 
         Ok(())
     }
@@ -239,20 +253,6 @@ impl MetaPowerMatrixControllerService {
 
         let pato_id = Uuid::new_v4().to_string();
 
-        let create_paths = [
-            format!("{}/{}/bin", AI_PATO_DIR, pato_id),
-            format!("{}/{}/db", AI_PATO_DIR, pato_id),
-            format!("{}/{}/log", AI_PATO_DIR, pato_id),
-            format!("{}/{}/knowledge", AI_PATO_DIR, pato_id),
-            format!("{}/{}/live", AI_PATO_DIR, pato_id),
-        ];
-        create_paths.iter().for_each(|path| {
-            if let Err(e) = fs::create_dir_all(path.clone()) {
-                log!("{}创建失败: {}", path, e);
-                create_pato_success = false;
-            }
-        });
-
         if let Err(e) = self.create_pato_db() {
             log!("pato数据库创建失败: {}", e);
             create_pato_success = false;
@@ -275,7 +275,12 @@ impl MetaPowerMatrixControllerService {
             create_pato_success = false;
         }
 
-        let _ = self.create_pato_iss(pato_id.clone(), request.name.clone());
+        DEFAULT_PERSONA.with(|v| {
+            let tmp = v.borrow();
+            let persona =  tmp.get();
+            let _ = self.create_pato_iss(pato_id.clone(), request.name.clone(), persona.deref().to_string());
+        });
+
 
         let response = if create_pato_success {
             CreateResonse {
@@ -362,21 +367,11 @@ impl MetaPowerMatrixControllerService {
             let books = self.get_pato_shared_books(pato.id.clone());
             for book in books {
                 if !book.is_empty() && book.contains('#') {
-                    let mut summary = String::new();
                     let pair = book
                         .split('#')
                         .map(|b| b.to_owned())
                         .collect::<Vec<String>>();
-                    let summary_file_path = format!(
-                        "{}/{}/knowledge/{}.summary",
-                        AI_PATO_DIR,
-                        pato.id.clone(),
-                        pair[1].clone()
-                    );
-                    if let Ok(mut sig_file) = OpenOptions::new().read(true).open(summary_file_path)
-                    {
-                        let _ = sig_file.read_to_string(&mut summary);
-                    }
+                    let summary = SUMMARY.with(|v| v.borrow().get(&pair[1]).unwrap_or_default());
                     if !summary.is_empty() {
                         let resp = Knowledge {
                             sig: pair[1].clone(),
@@ -398,8 +393,6 @@ impl MetaPowerMatrixControllerService {
         &self,
         _request: EmptyRequest,
     ) -> std::result::Result<HotTopicResponse, String> {
-        let mut all_events = vec![];
-
         let callee = CALLEE.with(|callee| callee.borrow().as_ref().unwrap().clone());
 
         let (patos_resp,): (AllPatosResponse,) =
@@ -410,14 +403,13 @@ impl MetaPowerMatrixControllerService {
                 }
             };
 
-        let patos = patos_resp.pato_sn_id;
-        for pato in patos {
-            let events = self.find_events(pato.id, 2);
-            if !events.is_empty() {
-                all_events.extend(events);
+        let mut all_events = vec![];
+        TOPICS.with(|v|{
+            for event in v.borrow().iter(){
+                all_events.push(event);
             }
-        }
-
+        });
+        
         let mut set = HashSet::new();
         let mut result = Vec::new();
         for item in all_events {

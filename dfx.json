@@ -11,11 +11,6 @@
       "type": "custom",
       "wasm": "https://github.com/dfinity/internet-identity/releases/latest/download/internet_identity_dev.wasm.gz"
     },
-    "pabOnICP_backend": {
-      "candid": "src/pabOnICP_backend/pabOnICP_backend.did",
-      "package": "pabOnICP_backend",
-      "type": "rust"
-    },
     "pabOnICP_frontend": {
       "dependencies": [
         "pabOnICP_backend"
@@ -25,6 +20,24 @@
       ],
       "type": "assets",
       "workspace": "pabOnICP_frontend"
+    },
+    "agent": {
+      "build": "make agent",
+      "candid": "src/agent/agent_canister.did",
+      "wasm": "target/wasm32-unknown-unknown/release/agent_canister_opt.wasm",
+      "type": "custom"
+    },
+    "matrix": {
+      "build": "make matrix",
+      "candid": "src/matrix/matrix_canister.did",
+      "wasm": "target/wasm32-unknown-unknown/release/matrix_canister_opt.wasm",
+      "type": "custom"
+    },
+    "portal": {
+      "build": "make portal",
+      "candid": "src/pabOnICP_backend/portal_canister.did",
+      "wasm": "target/wasm32-unknown-unknown/release/portal_canister_opt.wasm",
+      "type": "custom"
     }
   },
   "defaults": {

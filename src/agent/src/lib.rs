@@ -15,14 +15,9 @@ static mut INITIALIZED: bool = false;
 static mut OWNER: Principal = Principal::anonymous();
 static mut FEE_TOKEN_ID: Principal = Principal::anonymous();
 const CYCLES_PER_TOKEN: u64 = 4000000000000;
-const WASI_MEMORY_ID: MemoryId = MemoryId::new(0);
 
 thread_local! {
     static AGENT_NAME: RefCell<String> = RefCell::new("".to_string());
-
-    // The memory manager is used for simulating multiple memories.
-    static MEMORY_MANAGER: RefCell<MemoryManager<DefaultMemoryImpl>> =
-        RefCell::new(MemoryManager::init(DefaultMemoryImpl::default()));
 }
 
 #[ic_cdk::init]
@@ -30,8 +25,6 @@ fn init() {
     unsafe {
         OWNER = caller();
     }
-    let wasi_memory = MEMORY_MANAGER.with(|m| m.borrow().get(WASI_MEMORY_ID));
-    ic_wasi_polyfill::init_with_memory(&[0u8; 32], &[], wasi_memory);
 }
 
 fn _only_owner() {

@@ -1433,7 +1433,6 @@ dependencies = [
  "ic-cdk-macros 0.13.2",
  "ic-cdk-timers",
  "ic-stable-structures",
- "ic-wasi-polyfill",
  "infer",
  "libc",
  "md5",

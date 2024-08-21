@@ -1,3 +1,7 @@
+use ic_stable_structures::memory_manager::{
+    MemoryId, MemoryManager as MM, VirtualMemory
+};
+use ic_stable_structures::{DefaultMemoryImpl, StableLog, RestrictedMemory, StableBTreeMap};
 use metapower_framework::dao::http::send_http_post_request;
 use metapower_framework::{
     AirdropRequest, AllPatosResponse, ChangeBalanceRequest, EmptyRequest, FollowKolRequest, ImageGenRequest, InjectHumanVoiceRequest, KolListResponse, KolRegistrationRequest, KolRelations, MessageRequest, NamePros, NameRequest, NameResponse, PatoInfoResponse, PatoOfPro, PatoOfProResponse, PopulationRegistrationRequest, ProfessionalsResponse, RoomCreateRequest, RoomCreateResponse, RoomInfo, RoomListResponse, SimpleRequest, SimpleResponse, SnIdPaire, SnRequest, SnResponse, TokenRequest, TokenResponse, TopicChatHisResponse, TopicChatRequest, UserActiveRequest
@@ -12,13 +16,57 @@ use metapower_framework::{
     ensure_directory_exists, AI_MATRIX_DIR, BATTERY_GRPC_REST_SERVER, BATTERY_GRPC_SERVER_PORT_START, LLMCHAT_GRPC_REST_SERVER, OFFICIAL_PATO, TICK, XFILES_LOCAL_DIR, XFILES_SERVER
 };
 use sha1::Digest;
+use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
-use std::fs::OpenOptions;
 use std::io::{BufRead, BufReader, Read};
 use std::path::Path;
 use std::time::SystemTime;
 use std::{env, io};
 use std::{fs::File, io::Write};
+
+type RM = RestrictedMemory<DefaultMemoryImpl>;
+type VM = VirtualMemory<RM>;
+
+const TOPICS_MEM_ID: MemoryId = MemoryId::new(0);
+const LOG_INDX_MEM_ID: MemoryId = MemoryId::new(1);
+const LOG_DATA_MEM_ID: MemoryId = MemoryId::new(2);
+const LOG_NAME_INDX_MEM_ID: MemoryId = MemoryId::new(3);
+const LOG_NAME_DATA_MEM_ID: MemoryId = MemoryId::new(4);
+const LOG_TAG_INDX_MEM_ID: MemoryId = MemoryId::new(5);
+const LOG_TAG_DATA_MEM_ID: MemoryId = MemoryId::new(6);
+const METADATA_PAGES: u64 = 16;
+
+thread_local! {
+    static MEMORY_MANAGER: RefCell<MM<RM>> = RefCell::new(
+        MM::init(RM::new(DefaultMemoryImpl::default(), METADATA_PAGES..u64::MAX))
+        );
+
+    static TOPICS: RefCell<StableBTreeMap<String, String, VM>> =
+        MEMORY_MANAGER.with(|mm| {
+        RefCell::new(StableBTreeMap::init(mm.borrow().get(TOPICS_MEM_ID)))
+        });
+    static ROOM_SCENES: RefCell<StableLog<String, VM, VM>> =
+        MEMORY_MANAGER.with(|mm| {
+          RefCell::new(StableLog::init(
+            mm.borrow().get(LOG_INDX_MEM_ID),
+            mm.borrow().get(LOG_DATA_MEM_ID),
+          ).expect("failed to initialize the session record"))
+        });
+    static ROOM_NAMES: RefCell<StableLog<String, VM, VM>> =
+        MEMORY_MANAGER.with(|mm| {
+          RefCell::new(StableLog::init(
+            mm.borrow().get(LOG_NAME_INDX_MEM_ID),
+            mm.borrow().get(LOG_NAME_DATA_MEM_ID),
+          ).expect("failed to initialize the session record"))
+        });
+    static TAGS: RefCell<StableLog<String, VM, VM>> =
+        MEMORY_MANAGER.with(|mm| {
+          RefCell::new(StableLog::init(
+            mm.borrow().get(LOG_TAG_INDX_MEM_ID),
+            mm.borrow().get(LOG_TAG_DATA_MEM_ID),
+          ).expect("failed to initialize the session record"))
+        });
+}
 
 //TO-DO-IC-Storage
 fn generate_prompt(curr_input: Vec<String>, prompt_lib_file: &str) -> String {
@@ -205,14 +253,11 @@ impl MetaPowerMatrixAgentService {
             avatar_link = "".to_string();
         }
         let mut tags: Vec<String> = vec![];
-        if let Ok(mut file) = OpenOptions::new()
-            .read(true)
-            .open(format!("{}/{}/db/tags.json", AI_PATO_DIR, id))
-        {
-            let mut tags_json_str = String::new();
-            file.read_to_string(&mut tags_json_str)?;
-            tags = serde_json::from_str::<Vec<String>>(&tags_json_str).unwrap_or_default();
-        }
+        TAGS.with(|v|{
+            for tag in v.borrow().iter(){
+                tags.push(tag);
+            }
+        });
 
         let mut pato_info: PatoInfoResponse = PatoInfoResponse::default();
         match MetapowerSqlite3::query_db(
@@ -725,22 +770,9 @@ impl MetaPowerMatrixAgentService {
                         hasher.update(&topic);
                         hasher.update(&town);
                         let saved_file_name = format!("{:x}", hasher.finalize());
-                        let saved_topic_message_file = format!(
-                            "{}/{}/db/topic/{}.json",
-                            AI_AGENT_DIR, agent_id, saved_file_name
-                        );
-                        if let Ok(mut sig_file) = OpenOptions::new()
-                            .create(true)
-                            .write(true)
-                            .truncate(true)
-                            .open(saved_topic_message_file)
-                        {
-                            let _ = sig_file.write_all(
-                                serde_json::to_string(&chat_messages)
-                                    .unwrap_or_default()
-                                    .as_bytes(),
-                            );
-                        }
+                        TOPICS.with(|v|{
+                            v.borrow_mut().insert(saved_file_name, serde_json::to_string(&chat_messages).unwrap_or_default())
+                        });
                     }
                 }
                 Err(e) => {
@@ -763,15 +795,12 @@ impl MetaPowerMatrixAgentService {
         hasher.update(&topic);
         hasher.update(&town);
         let saved_file_name = format!("{:x}", hasher.finalize());
-        let saved_topic_message_file = format!(
-            "{}/{}/db/topic/{}.json",
-            AI_AGENT_DIR, self.id, saved_file_name
-        );
-        if let Ok(mut sig_file) = OpenOptions::new().read(true).open(saved_topic_message_file) {
-            let mut buf = String::new();
-            let _ = sig_file.read_to_string(&mut buf);
-            chat_messages = serde_json::from_str(&buf).unwrap_or_default();
-        }
+
+        TOPICS.with(|v| {
+            let his = v.borrow().get(&saved_file_name).unwrap_or_default();
+            chat_messages = serde_json::from_str(&his).unwrap_or_default();
+        });
+
         Ok(TopicChatHisResponse {
             history: chat_messages,
         })
@@ -813,14 +842,7 @@ impl MetaPowerMatrixAgentService {
                     Ok(_) => {
                         let game_room_path =
                             format!("{}/{}/db/game_room/{}", AI_PATO_DIR, owner, room_id);
-                        let _ = ensure_directory_exists(&game_room_path);
-                        if let Ok(mut file) = OpenOptions::new()
-                            .create(true)
-                            .append(true)
-                            .open(format!("{}/scene.txt", game_room_path))
-                        {
-                            writeln!(file, "{}", xfiles_link)?;
-                        }
+                        ROOM_SCENES.with(|v| v.borrow_mut().append(&xfiles_link));
                     }
                     Err(e) => {
                         log!("download image error: {}", e);
@@ -855,22 +877,7 @@ impl MetaPowerMatrixAgentService {
             }
         }
 
-        let game_room_path = format!(
-            "{}/{}/{}/db/game_room/{}",
-            AI_AGENT_DIR,
-            self.id.clone(),
-            owner,
-            room_id
-        );
-        let _ = ensure_directory_exists(&game_room_path);
-        if let Ok(mut file) = OpenOptions::new()
-            .create(true)
-            .write(true)
-            .truncate(true)
-            .open(format!("{}/name.txt", game_room_path))
-        {
-            let _ = file.write_all(title.as_bytes());
-        }
+        ROOM_NAMES.with(|v| v.borrow_mut().append(&title));
 
         Ok(RoomCreateResponse {
             room_id,
