@@ -4,7 +4,6 @@ pub mod smith;
 use std::cell::RefCell;
 use candid::Principal;
 use ic_cdk::{api::caller, id};
-use ic_stable_structures::{memory_manager::{MemoryId, MemoryManager}, DefaultMemoryImpl};
 use smith::MetaPowerMatrixAgentService;
 use metapower_framework::{
     AirdropRequest, AllPatosResponse, ChangeBalanceRequest, EmptyRequest, FollowKolRequest, InjectHumanVoiceRequest, KolListResponse, KolRegistrationRequest, NameRequest, NameResponse, PatoInfoResponse, PatoOfProResponse, PopulationRegistrationRequest, RoomCreateRequest, RoomCreateResponse, RoomListResponse, SimpleRequest, SimpleResponse, SnRequest, SnResponse, TokenRequest, TokenResponse, TopicChatHisResponse, TopicChatRequest
@@ -13,8 +12,6 @@ use metapower_framework::{
 static mut POPULATION_QUANTITIES: u64 = 0;
 static mut INITIALIZED: bool = false;
 static mut OWNER: Principal = Principal::anonymous();
-static mut FEE_TOKEN_ID: Principal = Principal::anonymous();
-const CYCLES_PER_TOKEN: u64 = 4000000000000;
 
 thread_local! {
     static AGENT_NAME: RefCell<String> = RefCell::new("".to_string());
@@ -336,3 +333,5 @@ async fn request_deposit( id: String, amount: f32, key: String){
     };
     MetaPowerMatrixAgentService::new().request_deposit(request).await;
 }
+
+ic_cdk::export_candid!();

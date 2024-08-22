@@ -10,7 +10,8 @@ agent:
 
 matrix:
 	cargo build --target wasm32-unknown-unknown --package matrix_canister --release
-	ic-cdk-optimizer ./target/wasm32-unknown-unknown/release/matrix_canister.wasm -o ./target/wasm32-unknown-unknown/release/matrix_canister_opt.wasm
+	wasm-opt -Os --enable-simd --enable-bulk-memory   -o ./target/wasm32-unknown-unknown/release/matrix_canister_opt.wasm  \
+        ./target/wasm32-unknown-unknown/release/matrix_canister.wasm 
 
 portal:
 	cargo build --target wasm32-unknown-unknown --package portal_canister --release
