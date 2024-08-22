@@ -428,9 +428,6 @@ pub fn get_now_secs_str_zh() -> String {
 pub fn get_now_mils() -> u128 {
     SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_millis()
 }
-pub fn get_now_hour() -> u32 {
-    Utc::now().hour()
-}
 pub fn ensure_directory_exists(dir_path: &str) -> std::io::Result<()> {
     let path = Path::new(dir_path);
     if !path.exists() {
