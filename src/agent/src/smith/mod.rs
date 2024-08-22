@@ -10,7 +10,7 @@ use metapower_framework::{
 use anyhow::{anyhow, Error};
 use metapower_framework::dao::crawler::download_image;
 use metapower_framework::{
-    dao::sqlite::MetapowerSqlite3, get_now_secs, log, read_and_writeback_json_file, ChatMessage, AI_PATO_DIR,
+    dao::sqlite::MetapowerSqlite3, log, read_and_writeback_json_file, ChatMessage, AI_PATO_DIR,
 };
 use metapower_framework::{
     AI_MATRIX_DIR, BATTERY_GRPC_REST_SERVER, BATTERY_GRPC_SERVER_PORT_START, LLMCHAT_GRPC_REST_SERVER, OFFICIAL_PATO, XFILES_LOCAL_DIR, XFILES_SERVER
@@ -561,7 +561,7 @@ impl MetaPowerMatrixAgentService {
         for role in roles {
             let active_session_path = format!("{}/{}/live/{}", AI_PATO_DIR, role, session);
             let chat_message = ChatMessage {
-                created_at: get_now_secs() as i64,
+                created_at: 0,
                 session: session.clone(),
                 place: "live_room".to_string(),
                 sender: request.id.clone(),

@@ -3,12 +3,12 @@ pub mod prompt;
 pub mod mqtt;
 
 pub extern crate ic_canister_log;
-pub extern crate chrono;
+// pub extern crate chrono;
 
 use std::{fs, path::Path, time::SystemTime};
 use candid::CandidType;
 use serde::de::DeserializeOwned;
-use chrono::{DateTime, Utc, Timelike};
+// use chrono::{DateTime, Utc, Timelike};
 use serde::{Deserialize, Serialize};
 use std::fs::OpenOptions;
 use std::io::{Read, Write, Seek, SeekFrom};
@@ -392,42 +392,42 @@ pub fn get_event_subjects() -> Vec<&'static str>{
         "universe",
     ]
 }
-pub fn get_now_secs() -> u64 {
-    SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs()
-}
-pub fn get_now_date_str() -> String {
-    let system_time = SystemTime::now();
-    let datetime: DateTime<Utc> = system_time.into();
+// pub fn get_now_secs() -> u64 {
+//     SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs()
+// }
+// pub fn get_now_date_str() -> String {
+//     let system_time = SystemTime::now();
+//     let datetime: DateTime<Utc> = system_time.into();
 
-    datetime.format("%Y-%m-%d").to_string()
-}
-pub fn get_tomorrow_date_str() -> String {
-    let system_time = SystemTime::now().checked_add(std::time::Duration::from_secs(86400)).unwrap_or(SystemTime::now());
-    let datetime: DateTime<Utc> = system_time.into();
+//     datetime.format("%Y-%m-%d").to_string()
+// }
+// pub fn get_tomorrow_date_str() -> String {
+//     let system_time = SystemTime::now().checked_add(std::time::Duration::from_secs(86400)).unwrap_or(SystemTime::now());
+//     let datetime: DateTime<Utc> = system_time.into();
 
-    datetime.format("%Y-%m-%d").to_string()
-}
-pub fn get_past_date_str(day: u64) -> String {
-    let system_time = SystemTime::now().checked_sub(std::time::Duration::from_secs(86400*day)).unwrap_or(SystemTime::now());
-    let datetime: DateTime<Utc> = system_time.into();
+//     datetime.format("%Y-%m-%d").to_string()
+// }
+// pub fn get_past_date_str(day: u64) -> String {
+//     let system_time = SystemTime::now().checked_sub(std::time::Duration::from_secs(86400*day)).unwrap_or(SystemTime::now());
+//     let datetime: DateTime<Utc> = system_time.into();
 
-    datetime.format("%Y-%m-%d").to_string()
-}
-pub fn get_now_secs_str() -> String {
-    let system_time = SystemTime::now();
-    let datetime: DateTime<Utc> = system_time.into();
+//     datetime.format("%Y-%m-%d").to_string()
+// }
+// pub fn get_now_secs_str() -> String {
+//     let system_time = SystemTime::now();
+//     let datetime: DateTime<Utc> = system_time.into();
 
-    datetime.format("%d-%m-%YTZ%H:%M:%S").to_string()
-}
-pub fn get_now_secs_str_zh() -> String {
-    let system_time = SystemTime::now();
-    let datetime: DateTime<Utc> = system_time.into();
+//     datetime.format("%d-%m-%YTZ%H:%M:%S").to_string()
+// }
+// pub fn get_now_secs_str_zh() -> String {
+//     let system_time = SystemTime::now();
+//     let datetime: DateTime<Utc> = system_time.into();
 
-    datetime.format("%Y-%m-%d %H:%M").to_string()
-}
-pub fn get_now_mils() -> u128 {
-    SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_millis()
-}
+//     datetime.format("%Y-%m-%d %H:%M").to_string()
+// }
+// pub fn get_now_mils() -> u128 {
+//     SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_millis()
+// }
 pub fn ensure_directory_exists(dir_path: &str) -> std::io::Result<()> {
     let path = Path::new(dir_path);
     if !path.exists() {
@@ -483,8 +483,8 @@ macro_rules! log {
             $crate::ic_canister_log::declare_log_buffer!(name = LOG, capacity = 100);
 
             let system_time = std::time::SystemTime::now();
-            let datetime: $crate::chrono::DateTime<$crate::chrono::Utc> = system_time.into();
-            let formatted_msg = format!("[{}][{}]{}", datetime.format("%Y-%m-%d %H:%M").to_string(), ic_cdk::id(), format_args!($fmt $(, $($arg)+)?));
+            // let datetime: $crate::chrono::DateTime<$crate::chrono::Utc> = system_time.into();
+            let formatted_msg = format!("[{:?}][{}]{}", system_time, ic_cdk::id(), format_args!($fmt $(, $($arg)+)?));
     
             $crate::ic_canister_log::log!(LOG, "{}", formatted_msg);    
         }
