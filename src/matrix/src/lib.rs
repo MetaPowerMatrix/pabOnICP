@@ -156,7 +156,6 @@ pub struct MapStatus {
 
 static mut INITIALIZED: bool = false;
 static mut OWNER: Principal = Principal::anonymous();
-const WASI_MEMORY_ID: MemoryId = MemoryId::new(0);
 
 thread_local! {
     static CALLEE: RefCell<Option<Principal>> = const { RefCell::new(None) };
