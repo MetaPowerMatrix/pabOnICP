@@ -38,7 +38,6 @@ dependencies = [
  "serde_json",
  "serde_with",
  "sha1",
- "uuid",
 ]
 
 [[package]]

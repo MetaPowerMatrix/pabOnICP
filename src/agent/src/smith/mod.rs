@@ -1,3 +1,4 @@
+use candid::Principal;
 use ic_stable_structures::memory_manager::{
     MemoryId, MemoryManager as MM, VirtualMemory
 };
@@ -9,20 +10,18 @@ use metapower_framework::{
 use anyhow::{anyhow, Error};
 use metapower_framework::dao::crawler::download_image;
 use metapower_framework::{
-    dao::sqlite::MetapowerSqlite3, get_now_secs, log, read_and_writeback_json_file, ChatMessage,
-    AI_AGENT_DIR, AI_PATO_DIR,
+    dao::sqlite::MetapowerSqlite3, get_now_secs, log, read_and_writeback_json_file, ChatMessage, AI_PATO_DIR,
 };
 use metapower_framework::{
-    ensure_directory_exists, AI_MATRIX_DIR, BATTERY_GRPC_REST_SERVER, BATTERY_GRPC_SERVER_PORT_START, LLMCHAT_GRPC_REST_SERVER, OFFICIAL_PATO, TICK, XFILES_LOCAL_DIR, XFILES_SERVER
+    AI_MATRIX_DIR, BATTERY_GRPC_REST_SERVER, BATTERY_GRPC_SERVER_PORT_START, LLMCHAT_GRPC_REST_SERVER, OFFICIAL_PATO, XFILES_LOCAL_DIR, XFILES_SERVER
 };
 use sha1::Digest;
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
-use std::io::{BufRead, BufReader, Read};
+use std::io::{BufRead, BufReader};
 use std::path::Path;
-use std::time::SystemTime;
-use std::{env, io};
-use std::{fs::File, io::Write};
+use std::io;
+use std::fs::File;
 
 type RM = RestrictedMemory<DefaultMemoryImpl>;
 type VM = VirtualMemory<RM>;
@@ -594,7 +593,8 @@ impl MetaPowerMatrixAgentService {
         )";
         let id = request.id.clone();
         let name = self.get_pato_name(id.clone()).unwrap_or_default();
-        let uuid = uuid::Uuid::new_v4().to_string();
+        let (bytes,): (Vec<u8>,) = ic_cdk::api::call::call(Principal::management_canister(), "raw_rand", ()).await.unwrap_or_default();
+        let uuid = bytes.iter().map(|b| format!("{:02x}", b)).collect::<String>();;
         let mut hasher = sha1::Sha1::new();
         hasher.update(uuid.as_bytes());
         let token = format!("{:x}", hasher.finalize());
@@ -824,8 +824,10 @@ impl MetaPowerMatrixAgentService {
         let title = request.title.clone();
         let town = request.town.clone();
         let description = request.description.clone();
-        let room_id = uuid::Uuid::new_v4().to_string();
-        let image_file_name = uuid::Uuid::new_v4().to_string();
+        let (bytes,): (Vec<u8>,) = ic_cdk::api::call::call(Principal::management_canister(), "raw_rand", ()).await.unwrap_or_default();
+        let room_id = bytes.iter().map(|b| format!("{:02x}", b)).collect::<String>();
+        let (bytes,): (Vec<u8>,) = ic_cdk::api::call::call(Principal::management_canister(), "raw_rand", ()).await.unwrap_or_default();
+        let image_file_name = bytes.iter().map(|b| format!("{:02x}", b)).collect::<String>();;
         let mut xfiles_link = String::default();
 
         let prompt = format!(
