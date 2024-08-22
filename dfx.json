@@ -46,6 +46,11 @@
       "packtool": ""
     }
   },
+  "metadata": [
+    {
+      "name": "candid:service"
+    }
+  ],
   "output_env_file": ".env",
   "version": 1
 }
