@@ -67,8 +67,6 @@ fn start_with_interval_secs(secs: u64) {
     // ic_cdk_timers::set_timer_interval(interval, || ic_cdk::spawn(async_function()));
 }
 
-ic_cdk::export_candid!();
-
 #[derive(Debug)]
 pub struct MatrixRunner{
     pub version: String,
