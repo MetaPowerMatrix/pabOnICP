@@ -20,7 +20,7 @@ static CYCLES_USED: AtomicU64 = AtomicU64::new(0);
 
 thread_local! {
     /// The global vector to keep multiple timer IDs.
-    static TIMER_IDS: RefCell<Vec<TimerId>> = RefCell::new(Vec::new());
+    static TIMER_IDS: RefCell<Vec<TimerId>> = const { RefCell::new(Vec::new()) };
 }
 
 fn track_cycles_used() {
@@ -67,6 +67,7 @@ fn start_with_interval_secs(secs: u64) {
     // ic_cdk_timers::set_timer_interval(interval, || ic_cdk::spawn(async_function()));
 }
 
+ic_cdk::export_candid!();
 
 #[derive(Debug)]
 pub struct MatrixRunner{

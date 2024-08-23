@@ -254,3 +254,5 @@ async fn request_shared_knowledges() -> Result<SharedKnowledgesResponse, String>
         Err(err) => Err(err.to_string()),
     }
 }
+
+ic_cdk::export_candid!();
