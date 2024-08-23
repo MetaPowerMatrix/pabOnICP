@@ -594,7 +594,7 @@ impl MetaPowerMatrixAgentService {
         let id = request.id.clone();
         let name = self.get_pato_name(id.clone()).unwrap_or_default();
         let (bytes,): (Vec<u8>,) = ic_cdk::api::call::call(Principal::management_canister(), "raw_rand", ()).await.unwrap_or_default();
-        let uuid = bytes.iter().map(|b| format!("{:02x}", b)).collect::<String>();;
+        let uuid = bytes.iter().map(|b| format!("{:02x}", b)).collect::<String>();
         let mut hasher = sha1::Sha1::new();
         hasher.update(uuid.as_bytes());
         let token = format!("{:x}", hasher.finalize());

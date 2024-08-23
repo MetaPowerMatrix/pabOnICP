@@ -4,6 +4,7 @@ use std::collections::{HashMap, HashSet};
 use std::ops::Deref;
 use std::vec;
 use anyhow::Error;
+use candid::Principal;
 use ic_stable_structures::storable::Bound;
 use ic_stable_structures::{StableCell, DefaultMemoryImpl, RestrictedMemory, StableBTreeMap, StableLog, Storable};
 use ic_stable_structures::memory_manager::{
@@ -22,7 +23,6 @@ use metapower_framework::dao::sqlite::MetapowerSqlite3;
 use metapower_framework::{
     log, AirdropRequest, AllPatosResponse, EmptyRequest, NameResponse, SimpleResponse
 };
-use uuid::Uuid;
 
 type RM = RestrictedMemory<DefaultMemoryImpl>;
 type VM = VirtualMemory<RM>;
@@ -226,7 +226,8 @@ impl MetaPowerMatrixControllerService {
     ) -> std::result::Result<CreateResonse, Error> {
         let mut create_pato_success = true;
 
-        let pato_id = Uuid::new_v4().to_string();
+        let (bytes,): (Vec<u8>,) = ic_cdk::api::call::call(Principal::management_canister(), "raw_rand", ()).await.unwrap_or_default();
+        let pato_id = bytes.iter().map(|b| format!("{:02x}", b)).collect::<String>();
 
         if let Err(e) = self.create_pato_db() {
             log!("pato数据库创建失败: {}", e);
