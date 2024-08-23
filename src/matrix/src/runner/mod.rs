@@ -4,17 +4,12 @@ use std::sync::atomic::Ordering;
 use std::time::Duration;
 use std::fs;
 use std::fs::File;
-use std::os::unix::process::CommandExt;
 use std::path::{Path, PathBuf};
 use std::io::Write;
-use std::process::Command;
-use ic_cdk::api::call;
 use ic_cdk_timers::TimerId;
-use metapower_framework::AllPatosResponse;
 use metapower_framework::{log, PatoLocation, AI_MATRIX_DIR, AI_PATO_DIR, TICK, HAVEAREST};
-use sysinfo::System;
+
 use crate::MapStatus;
-use crate::CALLEE;
 
 /// Initial canister balance to track the cycles usage.
 static INITIAL_CANISTER_BALANCE: AtomicU64 = AtomicU64::new(0);
@@ -153,76 +148,31 @@ impl MatrixRunner {
         }
     }
     fn run_battey(&self, id: String, sn: u64) -> std::io::Result<()> {
-        let battery_life = "/data/bin/metapower_battery";
-        //         -i {} -s {}", id, sn);
-        unsafe {
-            Command::new(battery_life)
-                .arg("-i")
-                .arg(id)
-                .arg("-s")
-                .arg(sn.to_string())
-                .pre_exec(|| {
-                    // This makes the child process the leader of a new session
-                    libc::setsid();
-                    Ok(())
-                })
-                .spawn()?;
-        }
-
-        log!("Started process in detached mode.");
         Ok(())
     }
     async fn check_battery_life(&self){
-        let mut sys = System::new_all();
-        // Update all information of our system struct.
-        sys.refresh_all();
 
-        let mut cmds  = vec![];
+        // let callee = CALLEE.with(|callee| callee.borrow().as_ref().unwrap().clone());
 
-        for (pid, process) in sys.processes() {
-            let name = process.name();
-            if name.contains("metapower") {
-                // log!("PID: {} - Name: {}", pid, name);
-                match process.cmd() {
-                    // Command line as a Vec<String>
-                    cmd if !cmd.is_empty() => {
-                        // log!("Command line: {}", cmd.join(" "));
-                        cmds.push(cmd);
-                    }
-                    _ => { log!("Command line not available"); }
-                }
-            }
-        }
+        // let (patos_resp,): (AllPatosResponse,) = match call::call(callee.clone(), "request_all_patos", ()).await {
+        //     Ok(response) => response,
+        //     Err((code, msg)) => {
+        //         println!("request_all_patos失败: {}: {}", code as u8, msg);
+        //         return;
+        //     }
+        // };
 
-        let callee = CALLEE.with(|callee| callee.borrow().as_ref().unwrap().clone());
-
-        let (patos_resp,): (AllPatosResponse,) = match call::call(callee.clone(), "request_all_patos", ()).await {
-            Ok(response) => response,
-            Err((code, msg)) => {
-                println!("request_all_patos失败: {}: {}", code as u8, msg);
-                return;
-            }
-        };
-
-        let patos = patos_resp.pato_sn_id;
-        for pato in patos {
-            let is_running = cmds.iter().any(|c| (*c).contains(&pato.id));
-            if !is_running {
-                if let Err(e) = self.run_battey(pato.id.clone(), pato.sn.parse::<u64>().unwrap_or_default()){
-                    println!("run_battey error: {}", e);
-                }
-                log!("battery life reload for pato: {}", pato.id);
-            }
-        }
+        // let patos = patos_resp.pato_sn_id;
+        // for pato in patos {
+        //     log!("battery life reload for pato: {}", pato.id);
+        // }
     }
     
     pub fn run_loop(&self) {
-        loop {
-            log!("matrix runner new round started.");
-            self.increase_tick();
-            self.refresh_map();
-            // self.check_battery_life().await;
-        }
+        log!("matrix runner new round started.");
+        self.increase_tick();
+        self.refresh_map();
+        self.check_battery_life();
     }
 }
 
