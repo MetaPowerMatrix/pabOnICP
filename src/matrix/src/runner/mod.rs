@@ -6,10 +6,12 @@ use std::fs;
 use std::fs::File;
 use std::path::{Path, PathBuf};
 use std::io::Write;
+use ic_cdk::caller;
 use ic_cdk_timers::TimerId;
 use metapower_framework::{log, PatoLocation, AI_MATRIX_DIR, AI_PATO_DIR, TICK, HAVEAREST};
 
 use crate::MapStatus;
+use crate::OWNER;
 
 /// Initial canister balance to track the cycles usage.
 static INITIAL_CANISTER_BALANCE: AtomicU64 = AtomicU64::new(0);
@@ -32,6 +34,9 @@ fn track_cycles_used() {
 
 #[ic_cdk_macros::init]
 fn init(min_interval_secs: u64) {
+    unsafe {
+        OWNER = caller();
+    }   
     start_with_interval_secs(min_interval_secs);
 }
 #[ic_cdk_macros::query]
