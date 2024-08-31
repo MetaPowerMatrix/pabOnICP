@@ -25,19 +25,34 @@
       "build": "make agent",
       "candid": "src/agent/agent_canister.did",
       "wasm": "target/wasm32-unknown-unknown/release/agent_canister_opt.wasm",
-      "type": "custom"
+      "type": "custom",
+      "metadata": [
+        {
+          "name": "candid:service"
+        }
+      ]
     },
     "matrix": {
       "build": "make matrix",
       "candid": "src/matrix/matrix_canister.did",
       "wasm": "target/wasm32-unknown-unknown/release/matrix_canister_opt.wasm",
-      "type": "custom"
+      "type": "custom",
+      "metadata": [
+        {
+          "name": "candid:service"
+        }
+      ]
     },
     "portal": {
       "build": "make portal",
       "candid": "src/pabOnICP_backend/portal_canister.did",
       "wasm": "target/wasm32-unknown-unknown/release/portal_canister_opt.wasm",
-      "type": "custom"
+      "type": "custom",
+      "metadata": [
+        {
+          "name": "candid:service"
+        }
+      ]
     }
   },
   "defaults": {
@@ -46,11 +61,6 @@
       "packtool": ""
     }
   },
-  "metadata": [
-    {
-      "name": "candid:service"
-    }
-  ],
   "output_env_file": ".env",
   "version": 1
 }

@@ -5,7 +5,6 @@ use std::{cell::RefCell, collections::HashMap};
 use candid::{CandidType, Principal};
 use controller::MetaPowerMatrixControllerService;
 use ic_cdk::{caller, id};
-use ic_stable_structures::{memory_manager::{MemoryId, MemoryManager}, DefaultMemoryImpl};
 use metapower_framework::EmptyRequest;
 use serde::{Deserialize, Serialize};
 
