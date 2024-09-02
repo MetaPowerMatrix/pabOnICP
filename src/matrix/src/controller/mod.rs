@@ -37,7 +37,7 @@ const LOG_SESSION_DATA_MEM_ID: MemoryId = MemoryId::new(5);
 const LOG_TOPICS_INDX_MEM_ID: MemoryId = MemoryId::new(6);
 const LOG_TOPICS_DATA_MEM_ID: MemoryId = MemoryId::new(7);
 const METADATA_PAGES: u64 = 16;
-const PERSONA_PAGES: u64 = 1;
+const PERSONA_PAGES: u64 = 4;
 
 #[derive(Default)]
 struct Cbor<T>(pub T) where T: serde::Serialize + serde::de::DeserializeOwned;
