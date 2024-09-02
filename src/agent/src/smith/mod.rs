@@ -644,14 +644,14 @@ impl MetaPowerMatrixAgentService {
                             name: record.get("name").unwrap().to_string(),
                         };
                     }
-                    return Ok(token_info);
+                    Ok(token_info)
                 } else {
-                    return Err(anyhow!("professionals subject not found"));
+                    Err(anyhow!("professionals subject not found"))
                 }
             }
             Err(e) => {
                 println!("Error: {}", e);
-                return Err(anyhow!("professionals subject not found"));
+                Err(anyhow!("professionals subject not found"))
             }
         }
     }

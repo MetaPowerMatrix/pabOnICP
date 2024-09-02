@@ -3,9 +3,9 @@ pub mod prompt;
 pub mod mqtt;
 
 pub extern crate ic_canister_log;
-// pub extern crate chrono;
+pub extern crate web_time;
 
-use std::{fs, path::Path, time::SystemTime};
+use std::{fs, path::Path};
 use candid::CandidType;
 use serde::de::DeserializeOwned;
 // use chrono::{DateTime, Utc, Timelike};
@@ -482,7 +482,7 @@ macro_rules! log {
         {
             $crate::ic_canister_log::declare_log_buffer!(name = LOG, capacity = 100);
 
-            let system_time = std::time::SystemTime::now();
+            let system_time = $crate::web_time::Instant::now();
             // let datetime: $crate::chrono::DateTime<$crate::chrono::Utc> = system_time.into();
             let formatted_msg = format!("[{:?}][{}]{}", system_time, ic_cdk::id(), format_args!($fmt $(, $($arg)+)?));
     
