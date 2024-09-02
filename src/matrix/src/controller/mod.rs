@@ -3,7 +3,8 @@ use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::ops::Deref;
 use std::vec;
-use anyhow::Error;
+use std::fmt::Write;
+use anyhow::{anyhow, Error};
 use candid::Principal;
 use ic_stable_structures::storable::Bound;
 use ic_stable_structures::{StableCell, DefaultMemoryImpl, RestrictedMemory, StableBTreeMap, StableLog, Storable};
@@ -127,31 +128,25 @@ impl MetaPowerMatrixControllerService {
             question TEXT NOT NULL,
             answer TEXT NOT NULL
         )";
-        let pray_table = "CREATE TABLE IF NOT EXISTS pray_message (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            sender TEXT NOT NULL,
-            content TEXT NOT NULL
-        )";
 
-        MetapowerSqlite3 {
-            db_name: "population_database".to_string(),
-        }
-        .create_table(message_table.to_owned())?
-        .create_table(pray_table.to_owned())?;
+        MetapowerSqlite3::new().create_table(message_table.to_owned())?;
 
         Ok(())
     }
     fn update_name_file(&self, _: String, name: String) -> Result<(), Error> {
-        PATO_NAME.with(|v| v.borrow_mut().append(&Cbor(name)));
+        match PATO_NAME.with(|v| v.borrow_mut().append(&Cbor(name))){
+            Ok(ret) => (),
+            Err(e) => return Err(anyhow!(format!("failed to append name: {:?}", e))),
+        }
+
         Ok(())
     }
     async fn prepare_pato_db(&self, id: String, name: String) -> Result<i64, String> {
         let mut sn = 0;
-        let callee = CALLEE.with(|callee| callee.borrow().as_ref().unwrap().clone());
+        let callee = CALLEE.with(|callee| *callee.borrow().as_ref().unwrap());
 
         let (resp,): (SimpleResponse,) = match call(
-            callee.clone(),
+            callee,
             "request_population_registration",
             (name, id.clone()),
         )
@@ -168,7 +163,7 @@ impl MetaPowerMatrixControllerService {
 
         let request = AirdropRequest { id, amount: 100.0 };
         let (_resp,): (SimpleResponse,) =
-            match call(callee.clone(), "request_airdrop", (request,)).await {
+            match call(callee, "request_airdrop", (request,)).await {
                 Ok(response) => response,
                 Err((code, msg)) => return Err(format!("pato空投失败: {}: {}", code as u8, msg)),
             };
@@ -227,7 +222,8 @@ impl MetaPowerMatrixControllerService {
         let mut create_pato_success = true;
 
         let (bytes,): (Vec<u8>,) = ic_cdk::api::call::call(Principal::management_canister(), "raw_rand", ()).await.unwrap_or_default();
-        let pato_id = bytes.iter().map(|b| format!("{:02x}", b)).collect::<String>();
+        // let pato_id = bytes.iter().map(|b| format!("{:02x}", b)).collect::<String>();
+        let pato_id = bytes.iter().fold("".to_string(), |mut acc, a| { write!(acc, "{:02x}", a).unwrap_or_default(); acc});
 
         if let Err(e) = self.create_pato_db() {
             log!("pato数据库创建失败: {}", e);

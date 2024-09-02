@@ -60,7 +60,7 @@ fn initialize(name: String) -> Result<(), ()> {
 pub fn hi() -> String{
     _must_initialized();
     unsafe {
-        format!("Hi, {}; {}; {};", OWNER, POPULATION_QUANTITIES, id())
+        format!("Hi, current agent is {}({}) controlled by {};registered pato is {}", AGENT_NAME.take(), id(), OWNER, POPULATION_QUANTITIES)
     }
 }
 

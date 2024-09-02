@@ -157,6 +157,10 @@ static mut INITIALIZED: bool = false;
 static mut OWNER: Principal = Principal::anonymous();
 
 thread_local! {
+    static MATRIX_NAME: RefCell<String> = RefCell::new("".to_string());
+}
+
+thread_local! {
     static CALLEE: RefCell<Option<Principal>> = const { RefCell::new(None) };
     static BATTERY_CALLEE: RefCell<HashMap<String, Principal>> = RefCell::new(HashMap::new());
 }
@@ -185,6 +189,10 @@ fn initialize(name: String) -> Result<(), ()> {
 
        INITIALIZED = true;
        OWNER = caller();
+
+       MATRIX_NAME.with(|matrix| {
+        *matrix.borrow_mut() = name;
+       });
    }
 
    Ok(())
@@ -194,7 +202,7 @@ fn initialize(name: String) -> Result<(), ()> {
 pub fn hi() -> String{
     _must_initialized();
     unsafe {
-        format!("Hi, {}; {};", OWNER, id())
+        format!("Hi, current matrix is {}({}) controlled by {};", MATRIX_NAME.take(), id(), OWNER)
     }
 }
 
