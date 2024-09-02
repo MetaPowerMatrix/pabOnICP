@@ -3,7 +3,6 @@ pub mod prompt;
 pub mod mqtt;
 
 pub extern crate ic_canister_log;
-pub extern crate web_time;
 
 use std::{fs, path::Path};
 use candid::CandidType;
@@ -482,8 +481,7 @@ macro_rules! log {
         {
             $crate::ic_canister_log::declare_log_buffer!(name = LOG, capacity = 100);
 
-            let system_time = $crate::web_time::Instant::now();
-            // let datetime: $crate::chrono::DateTime<$crate::chrono::Utc> = system_time.into();
+            let system_time = ic_cdk::api::time();
             let formatted_msg = format!("[{:?}][{}]{}", system_time, ic_cdk::id(), format_args!($fmt $(, $($arg)+)?));
     
             $crate::ic_canister_log::log!(LOG, "{}", formatted_msg);    
