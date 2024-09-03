@@ -232,7 +232,7 @@ async fn request_create_pato(name: String) -> Result<CreateResonse, String>{
     }
 }
 
-#[ic_cdk::query]
+#[ic_cdk::update]
 async fn request_hot_ai() -> Result<HotAiResponse, String>{
     _must_initialized();
     let request = EmptyRequest {    };
@@ -242,7 +242,7 @@ async fn request_hot_ai() -> Result<HotAiResponse, String>{
     }
 }
 
-#[ic_cdk::query]
+#[ic_cdk::update]
 async fn request_hot_topics() -> Result<HotTopicResponse, String>{
     _must_initialized();
     let request = EmptyRequest {    };

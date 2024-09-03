@@ -198,7 +198,7 @@ async fn query_pato_auth_token(token: String) -> Result<TokenResponse, String>{
     }
 }
 
-#[ic_cdk::query]
+#[ic_cdk::update]
 async fn request_pato_auth_token(id: String) -> Result<SimpleResponse, String>{
     _must_initialized();
     let request = SimpleRequest {
