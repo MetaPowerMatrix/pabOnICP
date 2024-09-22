@@ -1,6 +1,5 @@
 pub mod dao;
 pub mod prompt;
-pub mod mqtt;
 
 pub extern crate ic_canister_log;
 
@@ -63,6 +62,7 @@ pub struct DataResponse {
     pub content: String,
     pub code: String,
 }
+#[derive(Debug, Deserialize, Serialize, CandidType)]
 pub struct TileTypeMap {
     pub category: String,
     pub name: Vec<String>,
@@ -144,7 +144,7 @@ pub struct PatoLocation {
     pub step: u64,
 }
 
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, serde::Serialize, Deserialize)]
 pub struct SessionMessages {
     pub session: String,
     pub summary: String,
@@ -166,10 +166,10 @@ pub struct ChatMessage {
     pub subject: String,
 }
 
-#[derive(Deserialize, CandidType, Serialize)]
+#[derive(Deserialize, CandidType, Serialize, Debug)]
 pub struct EmptyRequest {}
 
-#[derive(Deserialize, CandidType, Serialize)]
+#[derive(Deserialize, CandidType, Serialize, Debug)]
 pub struct AirdropRequest {
     pub id: String,
     pub amount: f32,
@@ -217,7 +217,7 @@ pub struct SnIdPaire {
     pub sn: String,
 }
 
-#[derive(Deserialize, CandidType)]
+#[derive(Deserialize, CandidType, Default)]
 pub struct SnResponse {
     pub pato_sn_id: Vec<SnIdPaire>,
 }
@@ -265,7 +265,7 @@ pub struct TopicChatHisResponse {
     pub history: Vec<String>,
 }
 
-#[derive(Deserialize, CandidType)]
+#[derive(Deserialize, CandidType, Default)]
 pub struct ProfessionalsResponse {
     pub professionals: Vec<String>,
 }
@@ -358,7 +358,7 @@ pub struct UserActiveRequest {
     pub action: String,
 }
 
-#[derive(Deserialize, CandidType, Serialize)]
+#[derive(Deserialize, CandidType, Serialize, Debug)]
 pub struct ImageGenRequest {
     pub prompt: String,
 }
@@ -367,11 +367,521 @@ pub struct ImageGenResponse {
     pub image_url: String,
 }
 
-#[derive(Deserialize, CandidType, Serialize)]
+#[derive(Deserialize, CandidType, Serialize, Debug)]
 pub struct MessageRequest {
     pub message: String,
     pub subject: String,
     pub prompt: String,
+}
+
+#[derive(Deserialize, CandidType, Serialize, Debug)]
+pub struct TalkResponse {
+    pub speaker: String,
+    pub message: String,
+}
+
+
+#[derive(Deserialize, CandidType, Serialize, Debug)]
+pub struct SubmitTagsRequest {
+    pub tags: Vec<String>,
+}
+
+#[derive(Deserialize, CandidType, Serialize, Debug, Default)]
+pub struct SubmitTagsResponse {
+    pub avatar: String,
+}
+
+#[derive(Deserialize, CandidType, Serialize, Debug)]
+pub struct ImageAnswerRequest {
+    pub input: String,
+    pub prompt: String,
+    pub image_url: String,
+    pub room_id: String,
+    pub level: i32,
+}
+
+#[derive(Deserialize, CandidType, Serialize, Debug)]
+pub struct ImageGenPromptRequest {
+    pub description: String,
+    pub historical: String,
+    pub architectural: String,
+}
+
+#[derive(Deserialize, CandidType, Serialize, Debug)]
+pub struct ImageContextResponse {
+    pub context: String,
+}
+
+#[derive(Deserialize, CandidType, Serialize, Debug)]
+pub struct ImageContextRequest {
+    pub image_url: String,
+    pub prompt: String,
+    pub input: String,
+}
+
+#[derive(Deserialize, CandidType, Serialize, Debug)]
+pub struct BecomeKolRequest {
+    pub key: String,
+}
+
+#[derive(Deserialize, CandidType, Serialize, Debug)]
+pub struct JoinKolRoomRequest {
+    pub kol: String,
+    pub follower: String,
+    pub key: String,
+}
+
+#[derive(Deserialize, CandidType, Serialize, Debug)]
+pub struct RevealAnswerRequest {
+    pub id: String,
+    pub owner: String,
+    pub room_id: String,
+    pub level: i32,
+}
+
+#[derive(Deserialize, CandidType, Serialize, Debug)]
+pub struct RevealAnswerResponse {
+    pub answer: String,
+}
+
+#[derive(Deserialize, CandidType, Serialize, Debug)]
+pub struct GameAnswerRequest {
+    pub id: String,
+    pub name: String,
+    pub answer: String,
+    pub room_id: String,
+    pub level: i32,
+}
+
+#[derive(Deserialize, CandidType, Serialize, Debug)]
+pub struct GameAnswerResponse {
+    pub correct_gamers: Vec<String>,
+}
+
+#[derive(Deserialize, CandidType, Serialize, Debug)]
+pub struct JoinRoomRequest {
+    pub id: String,
+    pub name: String,
+    pub room_id: String,
+    pub level: i32,
+}
+
+#[derive(Deserialize, CandidType, Serialize, Debug)]
+pub struct JoinRoomResponse {
+    pub scene_count: i32,
+    pub last_scene: String,
+}
+
+#[derive(Deserialize, CandidType, Serialize, Debug)]
+pub struct ImageChatRequest {
+    pub reply_to: String,
+    pub message: String,
+    pub image_url: String,
+    pub room_id: String,
+    pub level: i32,
+}
+
+#[derive(Deserialize, CandidType, Serialize, Debug, Default)]
+pub struct ImageChatResponse {
+    pub answer: String,
+    pub answer_voice: String,
+}
+
+#[derive(Deserialize, CandidType, Serialize, Debug)]
+pub struct SvcImageDescriptionRequest {
+    pub image_url: String,
+}
+
+#[derive(Deserialize, CandidType, Serialize, Debug)]
+pub struct SvcImageDescriptionResponse {
+    pub description: String,
+}
+
+#[derive(Deserialize, CandidType, Serialize, Debug)]
+pub struct SceneRequest {
+    pub description: String,
+    pub sample_image: String,
+    pub room_id: String,
+}
+
+#[derive(Deserialize, CandidType, Serialize, Debug)]
+pub struct SceneResponse {
+    pub scene_image: String,
+}
+
+#[derive(Deserialize, CandidType, Serialize, Debug)]
+pub struct ShareKnowLedgesRequest {
+    pub sig: String,
+    pub title: String,
+    pub owner: String,
+}
+
+#[derive(Deserialize, CandidType, Serialize, Debug)]
+pub struct KnowLedgesRequest {
+    pub id: String,
+}
+
+#[derive(Deserialize, CandidType, Serialize, Debug, Clone)]
+pub struct KnowLedgeInfo {
+    pub title: String,
+    pub sig: String,
+    pub owner: String,
+    pub summary: String,
+}
+
+#[derive(Deserialize, CandidType, Serialize, Debug)]
+pub struct KnowLedgesResponse {
+    pub knowledge_info: Vec<KnowLedgeInfo>,
+}
+
+#[derive(Deserialize, CandidType, Serialize, Debug)]
+pub struct DocumentSummaryRequest {
+    pub document: String,
+}
+
+#[derive(Deserialize, CandidType, Serialize, Debug)]
+pub struct DocumentSummaryResponse {
+    pub summary: String,
+}
+
+#[derive(Deserialize, CandidType, Serialize, Debug)]
+pub struct QueryEmbeddingRequest {
+    pub query: String,
+    pub collection_name: String,
+}
+
+#[derive(Deserialize, CandidType, Serialize, Debug)]
+pub struct QueryEmbeddingResponse {
+    pub result: String,
+}
+
+#[derive(Deserialize, CandidType, Serialize, Debug)]
+pub struct SummaryAndEmbeddingResponse {
+    pub knowledge_file_sig: String,
+    pub transcript_file_sig: String,
+}
+
+#[derive(Deserialize, CandidType, Serialize, Debug)]
+pub struct SummaryAndEmbeddingRequest {
+    pub link: String,
+    pub knowledge_file: String,
+    pub transcript_file: String,
+    pub knowledge_file_sig: String,
+    pub transcript_file_sig: String,
+    pub link_sig: String,
+}
+
+#[derive(Deserialize, CandidType, Serialize, Debug)]
+pub struct GoTownRequest {
+    pub town: String,
+    pub topic: String,
+}
+
+#[derive(Deserialize, CandidType, Serialize, Debug)]
+pub struct EditeReqeust {
+    pub initial: String,
+    pub kol: String,
+    pub messages: String,
+}
+
+#[derive(Deserialize, CandidType, Serialize, Debug)]
+pub struct ContinueRequest {
+    pub session: String,
+    pub date: String,
+    pub continued: bool,
+}
+
+#[derive(Deserialize, CandidType, Serialize, Debug)]
+pub struct InstructRequest {
+    pub reply_to: String,
+    pub message: String,
+    pub kol: String,
+}
+
+#[derive(Deserialize, CandidType, Serialize, Debug)]
+pub struct InstructResponse {
+    pub answer: String,
+}
+
+#[derive(Deserialize, CandidType, Serialize, Debug)]
+pub struct CreateLiveSessionRequest {
+    pub session: String,
+}
+
+#[derive(Deserialize, CandidType, Serialize, Debug)]
+pub struct RestoreLiveRequest {
+    pub session: String,
+}
+
+#[derive(Deserialize, CandidType, Serialize, Debug)]
+pub struct ContinueLiveRequest {
+    pub roles: Vec<String>,
+    pub session: String,
+    pub message: String,
+}
+
+#[derive(Deserialize, CandidType, Serialize, Debug)]
+pub struct ContinueLiveResponse {
+    pub role_1_talk: String,
+    pub role_2_talk: String,
+    pub session: String,
+}
+
+#[derive(Deserialize, CandidType, Serialize, Debug)]
+pub struct OpenLiveRequest {
+    pub role_1_id: String,
+    pub role_2_id: String,
+    pub title: String,
+    pub live_topic: String,
+    pub session: String,
+}
+
+#[derive(Deserialize, CandidType, Serialize, Debug)]
+pub struct OpenLiveResponse {
+    pub cover: String,
+    pub room_id: String,
+}
+
+#[derive(Deserialize, CandidType, Serialize, Debug)]
+pub struct EventResponse {
+    pub events: Vec<String>,
+}
+
+#[derive(Deserialize, CandidType, Serialize, Debug)]
+pub struct PatoNameResponse {
+    pub name: String,
+}
+
+#[derive(Deserialize, CandidType, Serialize, Debug)]
+pub struct PatoIssResponse {
+    pub iss: String,
+}
+
+#[derive(Deserialize, CandidType, Serialize, Debug)]
+pub struct PatoIssEditRequest {
+    pub iss: String,
+}
+
+#[derive(Deserialize, CandidType, Serialize, Debug)]
+pub struct GetMessageRequest {
+    pub id: String,
+    pub date: String,
+}
+
+#[derive(Deserialize, CandidType, Serialize, Debug)]
+pub struct GetProMessageRequest {
+    pub id: String,
+    pub date: String,
+    pub proid: String,
+}
+
+#[derive(Deserialize, CandidType, Serialize, Debug)]
+pub struct ArchiveMessageRequest {
+    pub session: String,
+    pub date: String,
+}
+
+#[derive(Deserialize, CandidType, Serialize, Debug)]
+pub struct GetMessageResponse {
+    pub content: String,
+}
+
+#[derive(Deserialize, CandidType, Serialize, Debug)]
+pub struct EventRequest {
+    pub topic: String,
+}
+
+#[derive(Deserialize, CandidType, Serialize, Debug)]
+pub struct CallRequest {
+    pub id: String,
+    pub topic: String,
+}
+
+
+#[derive(Deserialize, CandidType, Serialize, Debug)]
+pub struct LlmEmptyResponse {}
+
+#[derive(Deserialize, CandidType, Serialize, Debug)]
+pub struct ImagePromptRequest {
+    pub image_url: String,
+    pub prompt: String,
+    pub input: String,
+}
+
+#[derive(Deserialize, CandidType, Serialize, Debug)]
+pub struct ImageDescriptionRequest {
+    pub image_url: String,
+}
+
+#[derive(Deserialize, CandidType, Serialize, Debug)]
+pub struct ImageDescriptionResponse {
+    pub description: String,
+}
+
+#[derive(Deserialize, CandidType, Serialize, Debug)]
+pub struct XRetweetRequest {
+    pub tweet_id: String,
+}
+
+#[derive(Deserialize, CandidType, Serialize, Debug)]
+pub struct XDirectMessageRequest {
+    pub recipient_id: String,
+    pub message_text: String,
+}
+
+#[derive(Deserialize, CandidType, Serialize, Debug)]
+pub struct QueryEmbeddingsRequest {
+    pub question: String,
+    pub collection_name: String,
+    pub db_path: String,
+}
+
+#[derive(Deserialize, CandidType, Serialize, Debug)]
+pub struct QueryEmbeddingsResponse {
+    pub result: String,
+}
+
+#[derive(Deserialize, CandidType, Serialize, Debug)]
+pub struct SpeechToTextRequest {
+    pub audio_url: String,
+}
+
+#[derive(Deserialize, CandidType, Serialize, Debug)]
+pub struct SpeechToTextResponse {
+    pub text: String,
+}
+
+#[derive(Deserialize, CandidType, Serialize, Debug)]
+pub struct TextToSpeechRequest {
+    pub text: String,
+}
+
+#[derive(Deserialize, CandidType, Serialize, Debug)]
+pub struct TextToSpeechResponse {
+    pub audio_url: String,
+}
+
+#[derive(Deserialize, CandidType, Serialize, Debug)]
+pub struct CharacterGenRequest {
+    pub tags: Vec<String>,
+    pub name: String,
+    pub gender: String,
+}
+
+#[derive(Deserialize, CandidType, Serialize, Debug)]
+pub struct CharacterGenResponse {
+    pub iss: String,
+}
+
+#[derive(Deserialize, CandidType, Serialize, Debug)]
+pub struct MultiImagesGenRequest {
+    pub prompt: String,
+    pub num_images: i32,
+}
+
+#[derive(Deserialize, CandidType, Serialize, Debug)]
+pub struct MultiImagesGenResponse {
+    pub image_url: Vec<String>,
+}
+
+#[derive(Deserialize, CandidType, Serialize, Debug)]
+pub struct BestTalkRequest {
+    pub question: String,
+    pub prompt: String,
+    pub collection_name: String,
+    pub db_path: String,
+}
+
+#[derive(Deserialize, CandidType, Serialize, Debug)]
+pub struct BetterTalkRequest {
+    pub question: String,
+    pub collection_name: Vec<String>,
+    pub db_path: String,
+    pub prompt: String,
+}
+
+#[derive(Deserialize, CandidType, Serialize, Debug)]
+pub struct TaskDecompositionRequest {
+    pub question: String,
+}
+
+#[derive(Deserialize, CandidType, Serialize, Debug)]
+pub struct TaskDecompositionResponse {
+    pub plan: Vec<String>,
+}
+
+#[derive(Deserialize, CandidType, Serialize, Debug)]
+pub struct ChatHistory {
+    pub ai_message: String,
+    pub human_message: String,
+}
+
+#[derive(Deserialize, CandidType, Serialize, Debug)]
+pub struct BetterQuestionRequest {
+    pub question: String,
+    pub stepback: bool,
+    pub collection_name: Vec<String>,
+    pub db_path: String,
+    pub chat_histories: Vec<ChatHistory>,
+}
+
+#[derive(Deserialize, CandidType, Serialize, Debug)]
+pub struct BetterQuestionResponse {
+    pub question_modified: String,
+}
+
+#[derive(Deserialize, CandidType, Serialize, Debug)]
+pub struct SomeDocs {
+    pub doc_file: String,
+    pub doc_format: String,
+}
+
+#[derive(Deserialize, CandidType, Serialize, Debug)]
+pub struct EventTopic {
+    pub topic: String,
+    pub subjects: Vec<String>,
+}
+
+#[derive(Deserialize, CandidType, Serialize, Debug)]
+pub struct SummarytResponse {
+    pub summary: String,
+}
+
+#[derive(Deserialize, CandidType, Serialize, Debug)]
+pub struct SubjectResponse {
+    pub subject: String,
+}
+
+#[derive(Deserialize, CandidType, Serialize, Debug)]
+pub struct DocsRequest {
+    pub doc_file: String,
+    pub collection: String,
+    pub db_path: String,
+    pub doc_id: String,
+    pub doc_format: String,
+}
+
+#[derive(Deserialize, CandidType, Serialize, Debug)]
+pub struct QuestionRequest {
+    pub question: String,
+    pub subject: String,
+    pub persona: String,
+}
+
+#[derive(Deserialize, CandidType, Serialize, Debug)]
+pub struct AnswerReply {
+    pub answer: String,
+}
+
+#[derive(Deserialize, CandidType, Serialize, Debug)]
+pub struct TileClassifyRequest {
+    pub name: Vec<String>,
+    pub category: Vec<String>,
+}
+
+#[derive(Deserialize, CandidType, Serialize, Debug)]
+pub struct TileClassifyResponse {
+    pub classified_tiles: Vec<TileTypeMap>,
 }
 
 pub fn get_event_subjects() -> Vec<&'static str>{
@@ -391,15 +901,14 @@ pub fn get_event_subjects() -> Vec<&'static str>{
         "universe",
     ]
 }
-// pub fn get_now_secs() -> u64 {
-//     SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs()
-// }
-// pub fn get_now_date_str() -> String {
-//     let system_time = SystemTime::now();
-//     let datetime: DateTime<Utc> = system_time.into();
-
-//     datetime.format("%Y-%m-%d").to_string()
-// }
+pub fn publish_battery_actions(src: String, message: String){
+}
+pub fn get_now_secs() -> u64 {
+    0
+}
+pub fn get_now_date_str() -> String {
+    "2024-01-01".to_string()
+}
 // pub fn get_tomorrow_date_str() -> String {
 //     let system_time = SystemTime::now().checked_add(std::time::Duration::from_secs(86400)).unwrap_or(SystemTime::now());
 //     let datetime: DateTime<Utc> = system_time.into();
@@ -483,8 +992,6 @@ macro_rules! log {
 
             let system_time = ic_cdk::api::time();
             let formatted_msg = format!("[{:?}][{}]{}", system_time, ic_cdk::id(), format_args!($fmt $(, $($arg)+)?));
-    
-            $crate::ic_canister_log::log!(LOG, "{}", formatted_msg);    
-        }
+            $crate::ic_canister_log::log!(LOG, "{}", formatted_msg);        }
     };
 }

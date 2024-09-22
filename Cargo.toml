@@ -3,6 +3,7 @@ members = [
     "src/pabOnICP_backend",
     "src/framework",
     "src/agent",
-    "src/matrix"
+    "src/matrix",
+    "src/battery"
 ]
 resolver = "2"

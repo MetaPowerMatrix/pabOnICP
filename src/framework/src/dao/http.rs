@@ -2,7 +2,6 @@ use ic_cdk::api::management_canister::http_request::{
     http_request, CanisterHttpRequestArgument, HttpHeader, HttpMethod, HttpResponse, TransformArgs,
     TransformContext,
 };
-
 use serde::{Serialize, Deserialize};
 use serde_json::{self};
 
@@ -108,7 +107,6 @@ pub async fn send_http_post_request(host: String, url: String, module: String, j
             Err(message)
         }
     }
-
 }
 
 pub fn transform(raw: TransformArgs) -> HttpResponse {

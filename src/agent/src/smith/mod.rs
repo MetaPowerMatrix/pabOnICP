@@ -102,6 +102,12 @@ pub struct MetaPowerMatrixAgentService {
     id: String,
 }
 
+impl Default for MetaPowerMatrixAgentService {
+    fn default() -> Self {
+        MetaPowerMatrixAgentService::new()
+    }
+}
+
 impl MetaPowerMatrixAgentService {
     pub fn new() -> Self {
         MetaPowerMatrixAgentService {
@@ -696,7 +702,6 @@ impl MetaPowerMatrixAgentService {
         let topic = request.topic.clone();
         let id = request.initial.clone();
         let amount = 10.0;
-        let agent_id = self.id.clone();
         let prompt_lib_file = format!("{}/template/plan/iterative_convo_topic.txt", AI_MATRIX_DIR);
         let add_balance = format!(
             "UPDATE balance SET amount = amount - {} WHERE id = \"{}\"",
