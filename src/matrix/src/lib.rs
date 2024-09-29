@@ -162,7 +162,6 @@ thread_local! {
 
 thread_local! {
     static CALLEE: RefCell<Option<Principal>> = const { RefCell::new(None) };
-    static BATTERY_CALLEE: RefCell<HashMap<String, Principal>> = RefCell::new(HashMap::new());
 }
 
 fn _only_owner() {
@@ -210,13 +209,6 @@ pub fn hi() -> String{
 pub fn setup_agent_canister(_id: String, agent_canister: Principal) {
     CALLEE.with(|callee| {
         *callee.borrow_mut() = Some(agent_canister);
-    });
-}
-
-#[ic_cdk::update]
-pub fn setup_battery_canister(id: String, canister: Principal) {
-    BATTERY_CALLEE.with(|callee| {
-        callee.borrow_mut().entry(id).and_modify(|v| *v = canister).or_insert(canister);
     });
 }
 

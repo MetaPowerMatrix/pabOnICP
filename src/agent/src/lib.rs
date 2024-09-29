@@ -1,13 +1,14 @@
 pub mod runner;
 pub mod smith;
 
-use std::cell::RefCell;
+use std::{cell::RefCell, collections::HashMap};
 use candid::Principal;
 use ic_cdk::{api::caller, id};
 use smith::MetaPowerMatrixAgentService;
 use metapower_framework::{
     AirdropRequest, AllPatosResponse, ChangeBalanceRequest, EmptyRequest, FollowKolRequest, InjectHumanVoiceRequest, KolListResponse, KolRegistrationRequest, NameRequest, NameResponse, PatoInfoResponse, PatoOfProResponse, PopulationRegistrationRequest, RoomCreateRequest, RoomCreateResponse, RoomListResponse, SimpleRequest, SimpleResponse, SnRequest, SnResponse, TokenRequest, TokenResponse, TopicChatHisResponse, TopicChatRequest
 };
+use std::fmt::Write;
 
 static mut POPULATION_QUANTITIES: u64 = 0;
 static mut INITIALIZED: bool = false;
@@ -15,6 +16,7 @@ static mut OWNER: Principal = Principal::anonymous();
 
 thread_local! {
     static AGENT_NAME: RefCell<String> = RefCell::new("".to_string());
+    static BATTERY_CALLEE: RefCell<HashMap<String, (i64, String)>> = RefCell::new(HashMap::new());
 }
 
 #[ic_cdk::init]
@@ -88,7 +90,7 @@ async fn request_airdrop(amount: f32, id: String) -> Result<SimpleResponse, Stri
 async fn request_population_registration(name: String, id: String) -> Result<SimpleResponse, String> {
     _must_initialized();
     let request = PopulationRegistrationRequest {
-        id,
+        id: id.clone(),
         name,
     };
     match MetaPowerMatrixAgentService::new().request_population_registration(request).await
@@ -97,10 +99,44 @@ async fn request_population_registration(name: String, id: String) -> Result<Sim
             unsafe {
                 POPULATION_QUANTITIES += 1;
             }
+            let (bytes,): (Vec<u8>,) = ic_cdk::api::call::call(Principal::management_canister(), "raw_rand", ()).await.unwrap_or_default();
+            // let pato_id = bytes.iter().map(|b| format!("{:02x}", b)).collect::<String>();
+            let token = bytes.iter().fold("".to_string(), |mut acc, a| { write!(acc, "{:02x}", a).unwrap_or_default(); acc});
+            BATTERY_CALLEE.with(|callee| {
+                callee.borrow_mut().entry(id).and_modify(|v| *v = (v.0, token.clone())).or_insert((response.message.parse::<i64>().unwrap_or(-1), token));
+            });
             Ok(response)
         }
         Err(err) => Err(err.to_string()),
     }
+}
+
+#[ic_cdk::update]
+pub fn setup_battery_auth(id: String, token: String) {
+    _only_owner();
+    BATTERY_CALLEE.with(|callee| {
+        callee.borrow_mut().entry(id).and_modify(|v| *v = (v.0, token));
+    });
+}
+
+#[ic_cdk::update]
+pub async fn refresh_battery_auth(id: String) {
+    let (bytes,): (Vec<u8>,) = ic_cdk::api::call::call(Principal::management_canister(), "raw_rand", ()).await.unwrap_or_default();
+    // let pato_id = bytes.iter().map(|b| format!("{:02x}", b)).collect::<String>();
+    let token = bytes.iter().fold("".to_string(), |mut acc, a| { write!(acc, "{:02x}", a).unwrap_or_default(); acc});
+    BATTERY_CALLEE.with(|callee| {
+        callee.borrow_mut().entry(id).and_modify(|v| *v = (v.0, token));
+    });
+}
+
+#[ic_cdk::query]
+pub async fn get_battery_auth(id: String) -> Option<(i64, String)> {
+    BATTERY_CALLEE.with(|callee| {
+        let auth = callee.borrow();
+        auth.get(&id).cloned()
+    });
+
+    None
 }
 
 #[ic_cdk::query]
@@ -110,17 +146,6 @@ fn request_pato_info(id: String) -> Result<PatoInfoResponse, String> {
         id,
     };
     match MetaPowerMatrixAgentService::new().request_pato_info(request){
-        Ok(response) => Ok(response),
-        Err(err) => Err(err.to_string()),
-    }
-}
-
-#[ic_cdk::query]
-fn request_pato_of_pro() -> Result<PatoOfProResponse, String> {
-    _must_initialized();
-    let request = EmptyRequest {};
-    match MetaPowerMatrixAgentService::new().request_professionals(request)
-    {
         Ok(response) => Ok(response),
         Err(err) => Err(err.to_string()),
     }

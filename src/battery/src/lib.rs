@@ -5,9 +5,9 @@ pub mod reverie;
 use std::cell::RefCell;
 use anyhow::{anyhow, Error};
 use candid::Principal;
-use ic_cdk::caller;
+use ic_cdk::{call, caller};
 use id::MetaPowerMatrixBatteryService;
-use metapower_framework::{dao::http::send_http_post_request, AnswerReply, BestTalkRequest, MessageRequest, SomeDocs};
+use metapower_framework::{dao::http::send_http_post_request, log, AnswerReply, BestTalkRequest, MessageRequest, SomeDocs};
 use serde::de::DeserializeOwned;
 
 const LLM_PROXY_HOST: &str = "icp.metapowermatrix.ai";
@@ -75,17 +75,8 @@ static mut INITIALIZED: bool = false;
 static mut OWNER: Principal = Principal::anonymous();
 
 thread_local! {
-    static BATTERY_ID: RefCell<String> = RefCell::new("".to_string());
-    static BATTERY_SN: RefCell<u64> = RefCell::new(1);
     static MATRIX_CALLEE: RefCell<Option<Principal>> = const { RefCell::new(None) };
     static AGENT_CALLEE: RefCell<Option<Principal>> = const { RefCell::new(None) };
-}
-
-#[ic_cdk::init]
-fn init() {
-    unsafe {
-        OWNER = caller();
-    }
 }
 
 fn _only_owner() {
@@ -103,25 +94,56 @@ fn _must_initialized() {
     }
 }
 
+async fn _auth_battery(id: String, token: String, sn: i64){
+    let callee = AGENT_CALLEE.with(|callee| *callee.borrow().as_ref().unwrap());
+
+    let (resp,): ((i64, String),) = match call(
+        callee,
+        "get_battery_auth",
+        (id,),
+    ).await{
+        Ok(response) => response,
+        Err((code, msg)) => {
+            ic_cdk::trap(&format!("agent not available: {:?} - {}", code, msg));
+        },
+    };
+    if resp.1 == token {
+        log!("pato校验通过");
+    }else {
+        ic_cdk::trap(&format!("pato校验失败: {}: {}", token, sn));
+    }
+}
+
+#[ic_cdk::init]
+fn init() {
+    unsafe {
+        OWNER = caller();
+    }
+}
+
 #[ic_cdk::update]
-fn initialize(name: String) -> Result<(), ()> {
+fn initialize(matrix_canister: Principal, agent_canister: Principal) -> Result<(), ()> {
    unsafe {
        if INITIALIZED {
            ic_cdk::trap("initialized");
        }
 
-       INITIALIZED = true;
        OWNER = caller();
-       BATTERY_ID.with(|battery| {
-        *battery.borrow_mut() = name;
-       });
-   }
+       MATRIX_CALLEE.with(|callee| {
+            *callee.borrow_mut() = Some(matrix_canister);
+        });
+        AGENT_CALLEE.with(|callee| {
+            *callee.borrow_mut() = Some(agent_canister);
+        });    
+        INITIALIZED = true;
+    }
 
    Ok(())
 }
 
 #[ic_cdk::update]
 pub fn setup_matrix_canister(canister: Principal) {
+    _only_owner();
     MATRIX_CALLEE.with(|callee| {
         *callee.borrow_mut() = Some(canister);
     });
@@ -129,24 +151,25 @@ pub fn setup_matrix_canister(canister: Principal) {
 
 #[ic_cdk::update]
 pub fn setup_agent_canister(canister: Principal) {
+    _only_owner();
     AGENT_CALLEE.with(|callee| {
         *callee.borrow_mut() = Some(canister);
     });
 }
 
 #[ic_cdk::query]
-pub fn hi() -> String{
+pub fn hi(id: String) -> String{
     _must_initialized();
     unsafe {
-        format!("Hi, my name is {}({}) controlled by {};registered pato is {:?}", BATTERY_ID.take(), ic_cdk::id(), OWNER, BATTERY_SN)
-        }
+        format!("Hi, my name is {}({}) controlled by {}", id, ic_cdk::id(), OWNER)
+    }
 }
 
 #[ic_cdk::update]
-pub async fn talk(message: String, subject: String, prompt: String) -> String{
+pub async fn talk(id: String, token: String, message: String, subject: String, prompt: String) -> String{
     _must_initialized();
 
-    let svc =  MetaPowerMatrixBatteryService::new(BATTERY_ID.take());
+    let svc =  MetaPowerMatrixBatteryService::new(id);
 
     let request = MessageRequest{
         message,
@@ -158,3 +181,33 @@ pub async fn talk(message: String, subject: String, prompt: String) -> String{
 
     String::default()
 }
+
+#[ic_cdk::update]
+pub async fn do_battery_service(id: String, token: String, sn: i64, method_name: String, args: String){
+    _must_initialized();
+    _auth_battery(id.clone(), token, sn).await;
+
+    match method_name.as_str() {
+        "talk" => {
+            let svc =  MetaPowerMatrixBatteryService::new(id);
+
+            let request = MessageRequest{
+                message: args,
+                subject: "".to_string(),
+                prompt: "".to_string(),
+            };
+
+            let resp = svc.talk(request).await;
+        }
+        "talk_best" => {
+            let svc =  MetaPowerMatrixBatteryService::new(id);
+        }
+        "got_documents_summary" => {
+            let svc =  MetaPowerMatrixBatteryService::new(id);
+        }
+        _ => {
+            ic_cdk::trap("unknown method");
+        }
+    }
+}
+

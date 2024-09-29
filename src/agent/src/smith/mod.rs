@@ -17,11 +17,7 @@ use metapower_framework::{
 };
 use sha1::Digest;
 use std::cell::RefCell;
-use std::collections::{HashMap, HashSet};
-use std::io::{BufRead, BufReader};
-use std::path::Path;
-use std::io;
-use std::fs::File;
+use std::collections::HashMap;
 
 type RM = RestrictedMemory<DefaultMemoryImpl>;
 type VM = VirtualMemory<RM>;
@@ -39,10 +35,11 @@ thread_local! {
     static MEMORY_MANAGER: RefCell<MM<RM>> = RefCell::new(
         MM::init(RM::new(DefaultMemoryImpl::default(), METADATA_PAGES..u64::MAX))
         );
+    static BATTERY_CALLEE: RefCell<HashMap<String, Principal>> = RefCell::new(HashMap::new());
 
     static TOPICS: RefCell<StableBTreeMap<String, String, VM>> =
         MEMORY_MANAGER.with(|mm| {
-        RefCell::new(StableBTreeMap::init(mm.borrow().get(TOPICS_MEM_ID)))
+            RefCell::new(StableBTreeMap::init(mm.borrow().get(TOPICS_MEM_ID)))
         });
     static ROOM_SCENES: RefCell<StableLog<String, VM, VM>> =
         MEMORY_MANAGER.with(|mm| {
@@ -68,18 +65,9 @@ thread_local! {
 }
 
 //TO-DO-IC-Storage
-fn generate_prompt(curr_input: Vec<String>, prompt_lib_file: &str) -> String {
-    // Read the prompt file
-    let file = File::open(prompt_lib_file).expect("Failed to open prompt file");
-    let reader = BufReader::new(file);
-    let prompt: String = reader
-        .lines()
-        .map(|line| line.unwrap_or_default())
-        .collect::<Vec<_>>()
-        .join("\n");
-
-    // Replace the placeholders with the actual inputs
+fn generate_prompt(curr_input: Vec<String>, prompt: String) -> String {
     let mut result = prompt;
+
     for (count, input) in curr_input.iter().enumerate() {
         result = result.replace(&format!("!<INPUT {}>!", count), input);
     }
@@ -114,51 +102,14 @@ impl MetaPowerMatrixAgentService {
             id: ic_cdk::id().to_string(),
         }
     }
-    //TO-DO-IC-Storage
-    fn get_pato_name(&self, id: String) -> Option<String> {
-        let callfilename = format!("{}/{}/db/name.txt", AI_PATO_DIR, id);
-        let mut lines: Vec<String> = vec![];
-        if let Ok(file) = File::open(callfilename.clone()) {
-            let reader = io::BufReader::new(file);
-            for line in reader.lines().map_while(Result::ok) {
-                if line.is_empty() {
-                    continue;
-                }
-                lines.push(line);
-            }
-        }
-        println!("get_pato_name lines: {:?}", lines);
 
-        lines.last().cloned()
-    }
-    //TO-DO-IC-Storage
-    fn generate_prompt(&self, curr_input: Vec<String>, prompt_lib_file: &str) -> String {
-        // Read the prompt file
-        let file = File::open(prompt_lib_file).expect("Failed to open prompt file");
-        let reader = BufReader::new(file);
-        let prompt: String = reader
-            .lines()
-            .map(|line| line.unwrap_or_default())
-            .collect::<Vec<_>>()
-            .join("\n");
+    fn get_pato_name(&self, id: String) -> Option<Principal> {
+        BATTERY_CALLEE.with(|callee| {
+            let name = callee.borrow();
+            name.get(&id).cloned()
+        });
 
-        // Replace the placeholders with the actual inputs
-        let mut result = prompt;
-        for (count, input) in curr_input.iter().enumerate() {
-            result = result.replace(&format!("!<INPUT {}>!", count), input);
-        }
-
-        // Remove the comment block marker if present
-        if result.contains("<commentblockmarker>###</commentblockmarker>") {
-            result = result
-                .split("<commentblockmarker>###</commentblockmarker>")
-                .nth(1)
-                .unwrap_or_default()
-                .to_string();
-        }
-
-        // Return the final prompt
-        result.trim().to_string()
+        None
     }
 
     pub async fn request_airdrop(
@@ -252,11 +203,8 @@ impl MetaPowerMatrixAgentService {
         let select_id_table = format!("select * from pato where id = \"{}\"", id.clone());
         println!("select_id_table sql: {}", select_id_table);
 
-        let mut avatar_link = format!("{}/avatar/{}/avatar.png", XFILES_SERVER, id);
-        let avatar = format!("{}/avatar/{}/avatar.png", XFILES_LOCAL_DIR, id);
-        if !Path::new(&avatar).exists() {
-            avatar_link = "".to_string();
-        }
+        let avatar_link = format!("{}/avatar/{}/avatar.png", XFILES_SERVER, id);
+        
         let mut tags: Vec<String> = vec![];
         TAGS.with(|v|{
             for tag in v.borrow().iter(){
@@ -313,68 +261,6 @@ impl MetaPowerMatrixAgentService {
         }
 
         Ok(pato_info)
-    }
-
-    pub fn request_professionals(
-        &self,
-        _request: EmptyRequest,
-    ) -> std::result::Result<PatoOfProResponse, Error> {
-        let mut pros: Vec<PatoOfPro> = vec![];
-        let select_pro_table = "select id, subject from professionals";
-        let mut pato_pro: HashMap<String, Vec<String>> = HashMap::new();
-
-        match MetapowerSqlite3::query_db(select_pro_table, vec!["id", "subject"]) {
-            Ok(records) => {
-                if !records.is_empty() {
-                    for record in records {
-                        let id = record.get("id").unwrap().to_string();
-                        let subject = record.get("subject").unwrap().to_string();
-                        pato_pro
-                            .entry(id)
-                            .and_modify(|p| p.push(subject.clone()))
-                            .or_insert(vec![]);
-                    }
-                }
-            }
-            Err(e) => {
-                println!("Error: {}", e);
-                return Err(anyhow!("professionals not found"));
-            }
-        }
-        for pro in pato_pro.iter() {
-            let mut name = String::default();
-            let name_file = format!("{}/{}/db/name.txt", AI_PATO_DIR, pro.0);
-            if let Ok(file) = File::open(name_file) {
-                let reader = BufReader::new(file);
-                if let Some(Ok(last_line)) = reader.lines().last() {
-                    name = last_line;
-                }
-            }
-            let mut set = HashSet::new();
-            let mut result = Vec::new();
-            for item in pro.1 {
-                if !item.is_empty() && set.insert(item.clone()) {
-                    result.push(item.clone());
-                }
-            }
-
-            let i = PatoOfPro {
-                id: pro.0.clone(),
-                subjects: result,
-                name,
-            };
-            pros.push(i);
-            pros.sort_by(|a, b| b.subjects.len().cmp(&a.subjects.len()));
-        }
-        let hot_pros = if pros.len() > 10 {
-            let _ = pros.split_off(10);
-            pros
-        } else {
-            pros
-        };
-
-        let response = PatoOfProResponse { patos: hot_pros };
-        Ok(response)
     }
 
     pub fn request_pato_sn(&self, request: SnRequest) -> std::result::Result<SnResponse, Error> {
@@ -572,7 +458,11 @@ impl MetaPowerMatrixAgentService {
             token TEXT NOT NULL
         )";
         let id = request.id.clone();
-        let name = self.get_pato_name(id.clone()).unwrap_or_default();
+        let name = match self.get_pato_name(id.clone()){
+            Some(name) => name.to_string(),
+            None => Err(anyhow!("pato not found"))?,
+        };
+
         let (bytes,): (Vec<u8>,) = ic_cdk::api::call::call(Principal::management_canister(), "raw_rand", ()).await.unwrap_or_default();
         let uuid = bytes.iter().map(|b| format!("{:02x}", b)).collect::<String>();
         let mut hasher = sha1::Sha1::new();
@@ -729,7 +619,7 @@ impl MetaPowerMatrixAgentService {
                                 curr_input.push(name.to_owned()); //8
                                 last_talked_person = name.clone();
 
-                                let prompt = generate_prompt(curr_input, &prompt_lib_file);
+                                let prompt = generate_prompt(curr_input, "".to_string());
                                 let req = serde_json::to_string(&MessageRequest {
                                     message: String::default(),
                                     subject: String::default(),
@@ -1072,7 +962,11 @@ impl MetaPowerMatrixAgentService {
         }
         // log!("relations: {:?}", relations);
         for (key, value) in relations.iter() {
-            let name = self.get_pato_name(key.to_string()).unwrap_or_default();
+            let name = match self.get_pato_name(key.to_string()){
+                Some(name) => name.to_string(),
+                None => "".to_string(),
+            };
+
             response.relations.push(KolRelations {
                 id: key.clone(),
                 follower: value.clone(),
