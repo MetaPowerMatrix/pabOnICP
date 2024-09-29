@@ -293,32 +293,6 @@ impl MetaPowerMatrixAgentService {
             }
         }
 
-        let mut professionals = vec![];
-        let select_pro_table = format!("select subject from professionals where id = \"{}\"", id);
-        match MetapowerSqlite3::query_db(&select_pro_table, vec!["subject"]) {
-            Ok(records) => {
-                if !records.is_empty() {
-                    for record in records {
-                        let subject = record.get("subject").unwrap().to_string();
-                        professionals.push(subject);
-                    }
-                }
-            }
-            Err(e) => {
-                println!("Error: {}", e);
-                return Err(anyhow!("professionals subject not found"));
-            }
-        }
-
-        let mut set = HashSet::new();
-        let mut result = Vec::new();
-        for item in professionals {
-            if set.insert(item.clone()) {
-                result.push(item.clone());
-            }
-        }
-        pato_info.professionals = result;
-
         let select_balance_table = format!("select amount from balance where id = \"{}\"", id);
         match MetapowerSqlite3::query_db(&select_balance_table, vec!["amount"]) {
             Ok(records) => {
@@ -1121,85 +1095,5 @@ impl MetaPowerMatrixAgentService {
         }
 
         Ok(EmptyRequest {})
-    }
-
-    pub async fn request_marriage_registration(
-        &self,
-        request: KolRegistrationRequest,
-    ) -> std::result::Result<EmptyRequest, Error> {
-        let pro_table = "CREATE TABLE IF NOT EXISTS Marriage (
-            sn INTEGER PRIMARY KEY AUTOINCREMENT,
-            registered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            id TEXT NOT NULL,
-            follower TEXT NOT NULL
-        )";
-
-        if let Err(e) = MetapowerSqlite3::new().create_table(pro_table.to_owned()) {
-            println!("Error: {}", e);
-        }
-
-        let id = request.id.clone();
-        let add_kol = "INSERT INTO Marriage (id, follower) VALUES (?1, ?2)";
-        if let Err(e) =
-            MetapowerSqlite3::new().insert_record(add_kol, &[&id, &OFFICIAL_PATO.to_string()])
-        {
-            println!("Error: {}", e);
-        }
-
-        Ok(EmptyRequest {})
-    }
-
-    pub async fn request_add_marriage_follower(
-        &self,
-        request: FollowKolRequest,
-    ) -> std::result::Result<EmptyRequest, Error> {
-        let follower = request.follower.clone();
-        let id = request.id.clone();
-        let add_kol = "INSERT INTO Marriage (id, follower) VALUES (?1, ?2)";
-        if let Err(e) = MetapowerSqlite3::new().insert_record(add_kol, &[&id, &follower]) {
-            println!("Error: {}", e);
-        }
-
-        Ok(EmptyRequest {})
-    }
-
-    pub async fn request_marriage_list(
-        &self,
-        _request: EmptyRequest,
-    ) -> std::result::Result<KolListResponse, Error> {
-        let mut response = KolListResponse { relations: vec![] };
-
-        let select_room_table = "select id, follower from Marriage";
-
-        let mut relations: HashMap<String, Vec<String>> = HashMap::new();
-        match MetapowerSqlite3::query_db(select_room_table, vec!["id", "follower"]) {
-            Ok(records) => {
-                if !records.is_empty() {
-                    for record in records {
-                        let kol = record.get("id").unwrap().to_string();
-                        let follower = record.get("follower").unwrap().to_string();
-                        relations
-                            .entry(kol)
-                            .and_modify(|f| f.push(follower.clone()))
-                            .or_insert(vec![follower.clone()]);
-                    }
-                }
-            }
-            Err(e) => {
-                println!("Error: {}", e);
-                return Err(anyhow!("request_kol_list error"));
-            }
-        }
-        // log!("relations: {:?}", relations);
-        for (key, value) in relations.iter() {
-            let name = self.get_pato_name(key.to_string()).unwrap_or_default();
-            response.relations.push(KolRelations {
-                id: key.clone(),
-                follower: value.clone(),
-                name,
-            });
-        }
-        // log!("response: {:?}", response.relations);
-        Ok(response)
     }
 }

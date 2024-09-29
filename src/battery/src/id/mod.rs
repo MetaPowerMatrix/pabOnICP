@@ -6,21 +6,19 @@ use ic_cdk::call;
 use metapower_framework::dao::crawler::download_image;
 use metapower_framework::AI_PATO_DIR;
 use metapower_framework::{
-    ensure_directory_exists, get_event_subjects, get_now_date_str, get_now_secs, log,
-    publish_battery_actions, read_and_writeback_json_file, AnswerReply, ArchiveMessageRequest,
-    BecomeKolRequest, BestTalkRequest, BetterTalkRequest, CallRequest, CharacterGenRequest,
-    CharacterGenResponse, ChatMessage, ContinueRequest, DocsRequest, DocumentSummaryRequest,
-    DocumentSummaryResponse, EditeReqeust, EmptyRequest, EventRequest, EventResponse, EventTopic,
-    GameAnswerRequest, GameAnswerResponse, GetMessageRequest, GetMessageResponse,
-    GetProMessageRequest, GoTownRequest, ImageAnswerRequest, ImageChatRequest, ImageChatResponse,
+    ensure_directory_exists, get_event_subjects, get_now_secs, log,
+    publish_battery_actions, AnswerReply, ArchiveMessageRequest,
+    BecomeKolRequest, BestTalkRequest, BetterTalkRequest, CharacterGenRequest,
+    CharacterGenResponse, ChatMessage, DocsRequest, DocumentSummaryRequest,
+    DocumentSummaryResponse, EmptyRequest, EventTopic,
+    GameAnswerRequest, GameAnswerResponse, GetMessageRequest, GetMessageResponse, ImageAnswerRequest, ImageChatRequest, ImageChatResponse,
     ImageContextRequest, ImageContextResponse, ImageDescriptionRequest, ImageDescriptionResponse,
     ImageGenPromptRequest, ImageGenRequest, ImageGenResponse, ImagePromptRequest, InstructRequest,
-    InstructResponse, JoinKolRoomRequest, JoinRoomRequest, JoinRoomResponse, KnowLedgeInfo,
+    InstructResponse, JoinKolRoomRequest, KnowLedgeInfo,
     KnowLedgesRequest, KnowLedgesResponse, LlmEmptyResponse,
-    MessageRequest, NameResponse, PatoIssEditRequest, PatoIssResponse,
+    MessageRequest, NameResponse,
     PatoNameResponse, QueryEmbeddingRequest, QueryEmbeddingResponse, QueryEmbeddingsRequest,
-    QueryEmbeddingsResponse, QuestionRequest, RevealAnswerRequest, RevealAnswerResponse,
-    SceneRequest, SceneResponse, SessionMessages, ShareKnowLedgesRequest, SnResponse,
+    QueryEmbeddingsResponse, QuestionRequest, RevealAnswerRequest, RevealAnswerResponse, SessionMessages, ShareKnowLedgesRequest, SnResponse,
     SomeDocs, SubjectResponse, SubmitTagsRequest, SubmitTagsResponse, SummaryAndEmbeddingRequest,
     SummaryAndEmbeddingResponse, SummarytResponse, SvcImageDescriptionRequest,
     SvcImageDescriptionResponse, TalkResponse, TextToSpeechRequest, TextToSpeechResponse,
@@ -134,35 +132,9 @@ impl MetaPowerMatrixBatteryService {
                     .first()
                 {
                     let message = format!("{}: {}", topic, message);
-                    let _ = publish_battery_actions(room_id.clone() + "/" + gamer_id, message);
+                    publish_battery_actions(room_id.clone() + "/" + gamer_id, message);
                 }
             }
-        }
-    }
-    pub fn continue_chat(&self, session: String, date: String, continued: bool) {
-        let mut continue_message = "byebye".to_string();
-        if continued {
-            continue_message = "真的很有收获呢，我们继续聊吧！".to_string();
-        }
-        let chat_message = ChatMessage {
-            created_at: get_now_secs() as i64,
-            session: session.clone(),
-            place: String::default(),
-            sender: self.id.clone(),
-            receiver: String::default(),
-            question: continue_message,
-            answer: String::default(),
-            subject: String::default(),
-            sender_role: "user".to_string(),
-        };
-        let chat_session_message_file = format!(
-            "{}/{}/db/{}/{}/message.json",
-            AI_PATO_DIR, self.id, date, session,
-        );
-        if let Err(e) =
-            read_and_writeback_json_file(&chat_session_message_file, &mut vec![chat_message])
-        {
-            log!("append continue message error: {}", e);
         }
     }
     pub async fn talk(&self, request: MessageRequest) -> std::result::Result<TalkResponse, Error> {
@@ -202,52 +174,6 @@ impl MetaPowerMatrixBatteryService {
         Err(anyhow!("um, I didn't hear clearly"))
     }
 
-    pub async fn create_event(
-        &self,
-        request: EventRequest,
-    ) -> std::result::Result<EmptyRequest, Error> {
-        let mut subject = String::default();
-        let subjects = get_event_subjects();
-        let topic = request.topic.clone().replace('\n', " and ");
-        let llm_client = LLMSvcClient::default();
-        let topic_subject_request = EventTopic {
-            topic: topic.clone(),
-            subjects: subjects.iter().map(|s| s.to_string()).collect(),
-        };
-        if let Ok(response) = llm_client
-            .call_llm_proxy::<EventTopic, SubjectResponse>(
-                "got_topic_subject",
-                topic_subject_request,
-            )
-            .await
-        {
-            subject = response.subject.clone();
-            subject = subject
-                .trim()
-                .trim_matches(|c: char| !c.is_alphanumeric() && c != ' ')
-                .to_string();
-            if subject.len() > MAX_SUBJECT_LEN as usize {
-                subject = subjects[0].to_string();
-            }
-        }
-        println!("create event: {}#{}", request.topic, subject);
-        let eventfilename = format!(
-            "{}/{}/db/event_{}.txt",
-            AI_PATO_DIR,
-            self.id,
-            get_now_date_str()
-        );
-        let mut file = OpenOptions::new()
-            .append(true)
-            .create(true)
-            .open(eventfilename)?;
-
-        writeln!(file, "{}#{}", topic, subject)?;
-
-        let response = EmptyRequest {};
-
-        Ok(response)
-    }
     pub async fn get_chat_messages(
         &self,
         request: GetMessageRequest,
@@ -350,28 +276,6 @@ impl MetaPowerMatrixBatteryService {
         Ok(response)
     }
 
-    pub fn request_pato_event(
-        &self,
-        _request: EmptyRequest,
-    ) -> std::result::Result<EventResponse, Error> {
-        let eventfilename = format!(
-            "{}/{}/db/event_{}.txt",
-            AI_PATO_DIR,
-            self.id,
-            get_now_date_str()
-        );
-        let mut lines: Vec<String> = vec![];
-        if let Ok(file) = File::open(eventfilename) {
-            let reader = io::BufReader::new(file);
-            for line in reader.lines().map_while(Result::ok) {
-                lines.push(line);
-            }
-        }
-        let response = EventResponse { events: lines };
-
-        Ok(response)
-    }
-
     pub fn request_pato_name(
         &self,
         _request: EmptyRequest,
@@ -388,59 +292,6 @@ impl MetaPowerMatrixBatteryService {
         let response = PatoNameResponse { name };
 
         Ok(response)
-    }
-
-    pub fn request_pato_iss(
-        &self,
-        _request: EmptyRequest,
-    ) -> std::result::Result<PatoIssResponse, Error> {
-        let mut iss = String::new();
-        if let Ok(mut file) = OpenOptions::new()
-            .read(true)
-            .open(format!("{}/{}/db/character.txt", AI_PATO_DIR, self.id))
-        {
-            file.read_to_string(&mut iss)?;
-        }
-        let response = PatoIssResponse { iss };
-
-        Ok(response)
-    }
-
-    pub fn change_pato_iss(
-        &self,
-        request: PatoIssEditRequest,
-    ) -> std::result::Result<EmptyRequest, Error> {
-        if let Ok(mut file) = OpenOptions::new()
-            .create(true)
-            .write(true)
-            .truncate(true)
-            .open(format!("{}/{}/db/character.txt", AI_PATO_DIR, self.id))
-        {
-            writeln!(file, "{}", request.iss)?;
-        }
-
-        Ok(EmptyRequest {})
-    }
-
-    pub fn request_pato_call(
-        &self,
-        request: CallRequest,
-    ) -> std::result::Result<EmptyRequest, Error> {
-        let eventfilename = format!("{}/{}/db/call.txt", AI_PATO_DIR, self.id);
-        match OpenOptions::new()
-            .append(true)
-            .create(true)
-            .open(eventfilename)
-        {
-            Ok(mut file) => {
-                writeln!(file, "{}#{}#waiting", request.id, request.topic)?;
-            }
-            Err(e) => {
-                log!("request_pato_call write file error: {}", e);
-            }
-        }
-
-        Ok(EmptyRequest {})
     }
 
     pub fn archive_chat_messages(
@@ -588,102 +439,6 @@ impl MetaPowerMatrixBatteryService {
                 log!("Instruct AI is something wrong: {}", e);
             }
         }
-        Ok(response)
-    }
-
-    pub fn get_pro_chat_messages(
-        &self,
-        request: GetProMessageRequest,
-    ) -> std::result::Result<GetMessageResponse, Error> {
-        let session_messages: Vec<ChatMessage> =
-            get_kol_messages(request.id.clone(), request.proid.clone());
-        let content = serde_json::to_string(&session_messages).unwrap_or_default();
-        let response = GetMessageResponse { content };
-
-        Ok(response)
-    }
-
-    pub fn request_continue_chat(
-        &self,
-        request: ContinueRequest,
-    ) -> std::result::Result<EmptyRequest, Error> {
-        log!("set to continue chat {}", request.continued);
-        self.continue_chat(
-            request.session.clone(),
-            request.date.clone(),
-            request.continued,
-        );
-        let response = EmptyRequest {};
-
-        Ok(response)
-    }
-
-    pub fn request_edit_messages(
-        &self,
-        request: EditeReqeust,
-    ) -> std::result::Result<EmptyRequest, Error> {
-        match serde_json::from_str::<Vec<ChatMessage>>(&request.messages) {
-            Ok(mut messages) => {
-                save_kol_chat_message(
-                    request.initial.clone(),
-                    request.kol.clone(),
-                    &mut messages,
-                    false,
-                );
-            }
-            Err(e) => {
-                log!("edited messages format error: {}", e);
-            }
-        }
-
-        let response = EmptyRequest {};
-
-        Ok(response)
-    }
-
-    pub fn request_go_town(
-        &self,
-        request: GoTownRequest,
-    ) -> std::result::Result<EmptyRequest, Error> {
-        let subject = request.town.clone();
-        let mut topic = request.topic.clone();
-        topic = if topic.is_empty() {
-            match subject.as_str() {
-                "music" => "聊聊音乐吧".to_string(),
-                "invest" => "聊聊投资吧".to_string(),
-                "literature" => "聊聊文学吧".to_string(),
-                "web3" => "聊聊区块链吧".to_string(),
-                "science" => "聊聊科学吧".to_string(),
-                _ => "随便聊聊吧".to_string(),
-            }
-        } else {
-            topic
-        };
-        println!("go town: {}#{}", subject, topic);
-        let eventfilename = format!(
-            "{}/{}/db/event_{}.txt",
-            AI_PATO_DIR,
-            self.id,
-            get_now_date_str()
-        );
-        let mut file = OpenOptions::new()
-            .append(true)
-            .create(true)
-            .open(eventfilename)?;
-
-        writeln!(file, "{}#{}", topic, subject)?;
-
-        let mapfilename = format!("{}/{}/db/town.txt", AI_PATO_DIR, self.id);
-        let mut file = OpenOptions::new()
-            .write(true)
-            .truncate(true)
-            .create(true)
-            .open(mapfilename)?;
-
-        writeln!(file, "{}", subject)?;
-
-        let response = EmptyRequest {};
-
         Ok(response)
     }
 
@@ -1064,89 +819,6 @@ impl MetaPowerMatrixBatteryService {
         Ok(response)
     }
 
-    pub async fn request_generate_scene(
-        &self,
-        request: SceneRequest,
-    ) -> std::result::Result<SceneResponse, Error> {
-        let description = request.description.clone();
-        let room_id = request.room_id.clone();
-        let (bytes,): (Vec<u8>,) =
-            ic_cdk::api::call::call(Principal::management_canister(), "raw_rand", ())
-                .await
-                .unwrap_or_default();
-        let image_file_name = bytes
-            .iter()
-            .map(|b| format!("{:02x}", b))
-            .collect::<String>();
-        let mut resp = SceneResponse {
-            scene_image: String::default(),
-        };
-
-        let client = LLMSvcClient::default();
-        let final_image_prompt = format!(
-            "(equirectangular panorama 360 panoramic:1.1) picture of, professional high quality, photography of a ({}),
-                architect portfolio,, Artstation, by Brandon Barré,, 8k resolution, detailed, focus,",
-            description
-        );
-        let image_request = ImageGenRequest {
-            prompt: final_image_prompt.clone(),
-        };
-        println!("image gen request: {:?}", image_request);
-        match client
-            .call_llm_proxy::<ImageGenRequest, ImageGenResponse>(
-                "gen_image_with_prompt",
-                image_request,
-            )
-            .await
-        {
-            Ok(answer) => {
-                let image_url = answer.image_url.clone();
-                let saved_local_file = format!("{}/game/{}", XFILES_LOCAL_DIR, image_file_name);
-                let xfiles_link = format!("{}/game/{}", XFILES_SERVER, image_file_name);
-                match download_image(&image_url, &saved_local_file).await {
-                    Ok(_) => {
-                        let _ = publish_battery_actions(
-                            request.room_id.clone(),
-                            "notification: 场景切换中".to_string(),
-                        );
-                        resp.scene_image = xfiles_link;
-                        let game_room_path =
-                            format!("{}/{}/db/game_room/{}", AI_PATO_DIR, self.id, room_id);
-                        let _ = ensure_directory_exists(&game_room_path);
-                        if let Ok(mut file) = OpenOptions::new()
-                            .create(true)
-                            .append(true)
-                            .open(format!("{}/scene.txt", game_room_path))
-                        {
-                            writeln!(file, "{}", resp.scene_image)?;
-                        }
-                        let mut levels = 0;
-                        if let Ok(file) = OpenOptions::new()
-                            .read(true)
-                            .open(format!("{}/scene.txt", game_room_path))
-                        {
-                            let reader = io::BufReader::new(file);
-                            levels = reader.lines().count();
-                        }
-                        if let Ok(mut file) = OpenOptions::new().create(true).append(true).open(
-                            format!("{}/scene_{}_prompt.txt", game_room_path, levels - 1),
-                        ) {
-                            writeln!(file, "{}", final_image_prompt)?;
-                        }
-                    }
-                    Err(e) => {
-                        log!("download image error: {}", e);
-                    }
-                }
-            }
-            Err(e) => {
-                log!("image_request AI is something wrong: {}", e);
-            }
-        }
-
-        Ok(resp)
-    }
-
     pub async fn request_image_description(
         &self,
         request: SvcImageDescriptionRequest,
@@ -1238,59 +910,13 @@ impl MetaPowerMatrixBatteryService {
         Ok(response)
     }
 
-    pub fn request_join_room(
-        &self,
-        request: JoinRoomRequest,
-    ) -> std::result::Result<JoinRoomResponse, Error> {
-        let room_id = request.room_id.clone();
-        let gamer_id = request.id.clone();
-        let gamer_name = request.name.clone();
-        let game_level = request.level;
-        let game_room_path = format!("{}/{}/db/game_room/{}", AI_PATO_DIR, self.id, room_id);
-        let _ = ensure_directory_exists(&game_room_path);
-        if let Ok(mut file) = OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(format!("{}/gamer.txt", game_room_path))
-        {
-            writeln!(file, "{}#{}#{}", gamer_id, gamer_name, game_level)?;
-        }
-
-        let message = format!("notification:{}进入房间", gamer_name);
-        let _ = publish_battery_actions(room_id.clone(), message);
-
-        let mut scene = String::default();
-        let mut scene_count = 0;
-        log!("game_room_path: {}", game_room_path);
-        if let Ok(file) = OpenOptions::new()
-            .read(true)
-            .open(format!("{}/scene.txt", game_room_path))
-        {
-            let reader = io::BufReader::new(file);
-            let lines = reader.lines();
-            for (i, line) in lines.map_while(Result::ok).enumerate() {
-                scene_count += 1;
-                log!("scene: {}", scene);
-                if i == game_level as usize {
-                    scene = line;
-                }
-            }
-        }
-        let response = JoinRoomResponse {
-            scene_count,
-            last_scene: scene,
-        };
-
-        Ok(response)
-    }
-
     pub async fn request_clue_from_image_chat(
         &self,
         request: ImageChatRequest,
     ) -> std::result::Result<ImageChatResponse, Error> {
         let mut sn: i64 = -1;
 
-        let callee = AGENT_CALLEE.with(|callee| callee.borrow().as_ref().unwrap().clone());
+        let callee = AGENT_CALLEE.with(|callee| *callee.borrow().as_ref().unwrap());
         let (sn_resp,): (SnResponse,) =
             match call(callee, "request_sn", (vec![request.reply_to.clone()],)).await {
                 Ok(response) => response,
@@ -1329,18 +955,6 @@ impl MetaPowerMatrixBatteryService {
         }
 
         Ok(ImageChatResponse::default())
-    }
-
-    pub fn accept_game_answer(
-        &self,
-        _request: EmptyRequest,
-    ) -> std::result::Result<GameAnswerResponse, Error> {
-        let win_gamers: Vec<String> = vec![];
-        let resp = GameAnswerResponse {
-            correct_gamers: win_gamers,
-        };
-
-        Ok(resp)
     }
 
     pub async fn receive_game_answer(

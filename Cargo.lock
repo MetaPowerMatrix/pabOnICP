@@ -131,6 +131,28 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
 
 [[package]]
+name = "battery_canister"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "candid 0.10.10",
+ "ic-cdk 0.13.5",
+ "ic-cdk-macros 0.13.2",
+ "ic-cdk-timers",
+ "ic-stable-structures",
+ "infer 0.15.0",
+ "metapower_framework",
+ "regex",
+ "serde",
+ "serde_bytes",
+ "serde_cbor",
+ "serde_json",
+ "serde_with",
+ "tempfile",
+ "tokio",
+]
+
+[[package]]
 name = "beef"
 version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1215,28 +1237,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "78ca9ab1a0babb1e7d5695e3530886289c18cf2f87ec19a575a0abdce112e3a3"
 
 [[package]]
-name = "metapower_battery"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "candid 0.10.10",
- "ic-cdk 0.13.5",
- "ic-cdk-macros 0.13.2",
- "ic-cdk-timers",
- "ic-stable-structures",
- "infer 0.15.0",
- "metapower_framework",
- "regex",
- "serde",
- "serde_bytes",
- "serde_cbor",
- "serde_json",
- "serde_with",
- "tempfile",
- "tokio",
-]
-
-[[package]]
 name = "metapower_framework"
 version = "0.1.0"
 dependencies = [
@@ -1448,15 +1448,6 @@ name = "pkg-config"
 version = "0.3.30"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d231b230927b5e4ad203db57bbcbee2802f6bce620b1e4a9024a07d94e2907ec"
-
-[[package]]
-name = "portal_canister"
-version = "0.1.0"
-dependencies = [
- "candid 0.10.10",
- "ic-cdk 0.13.5",
- "ic-cdk-timers",
-]
 
 [[package]]
 name = "powerfmt"

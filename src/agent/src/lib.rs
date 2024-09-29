@@ -47,7 +47,6 @@ fn initialize(name: String) -> Result<(), ()> {
        }
 
        INITIALIZED = true;
-       OWNER = caller();
        AGENT_NAME.with(|agent| {
         *agent.borrow_mut() = name;
        });
@@ -98,7 +97,7 @@ async fn request_population_registration(name: String, id: String) -> Result<Sim
             unsafe {
                 POPULATION_QUANTITIES += 1;
             }
-                Ok(response)
+            Ok(response)
         }
         Err(err) => Err(err.to_string()),
     }

@@ -1,26 +1,5 @@
 {
   "canisters": {
-    "internet_identity": {
-      "candid": "https://github.com/dfinity/internet-identity/releases/latest/download/internet_identity.did",
-      "frontend": {},
-      "remote": {
-        "id": {
-          "ic": "rdmx6-jaaaa-aaaaa-aaadq-cai"
-        }
-      },
-      "type": "custom",
-      "wasm": "https://github.com/dfinity/internet-identity/releases/latest/download/internet_identity_dev.wasm.gz"
-    },
-    "pabOnICP_frontend": {
-      "dependencies": [
-        "pabOnICP_backend"
-      ],
-      "source": [
-        "src/pabOnICP_frontend/dist"
-      ],
-      "type": "assets",
-      "workspace": "pabOnICP_frontend"
-    },
     "agent": {
       "build": "make agent",
       "candid": "src/agent/agent_canister.did",
@@ -43,10 +22,10 @@
         }
       ]
     },
-    "portal": {
-      "build": "make portal",
-      "candid": "src/pabOnICP_backend/portal_canister.did",
-      "wasm": "target/wasm32-unknown-unknown/release/portal_canister_opt.wasm",
+    "battery": {
+      "build": "make battery",
+      "candid": "src/battery/battery_canister.did",
+      "wasm": "target/wasm32-unknown-unknown/release/battery_canister_opt.wasm",
       "type": "custom",
       "metadata": [
         {

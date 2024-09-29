@@ -1,10 +1,9 @@
 use std::borrow::Cow;
 use std::cell::RefCell;
-use std::collections::{HashMap, HashSet};
-use std::ops::Deref;
+use std::collections::HashSet;
 use std::vec;
 use std::fmt::Write;
-use anyhow::{anyhow, Error};
+use anyhow::Error;
 use candid::Principal;
 use ic_stable_structures::storable::Bound;
 use ic_stable_structures::{StableCell, DefaultMemoryImpl, RestrictedMemory, StableBTreeMap, StableLog, Storable};
@@ -37,7 +36,6 @@ const LOG_SESSION_DATA_MEM_ID: MemoryId = MemoryId::new(5);
 const LOG_TOPICS_INDX_MEM_ID: MemoryId = MemoryId::new(6);
 const LOG_TOPICS_DATA_MEM_ID: MemoryId = MemoryId::new(7);
 const METADATA_PAGES: u64 = 16;
-const PERSONA_PAGES: u64 = 4;
 
 #[derive(Default)]
 struct Cbor<T>(pub T) where T: serde::Serialize + serde::de::DeserializeOwned;
@@ -69,26 +67,7 @@ thread_local! {
     static MEMORY_MANAGER: RefCell<MM<RM>> = RefCell::new(
         MM::init(RM::new(DefaultMemoryImpl::default(), METADATA_PAGES..u64::MAX))
         );
-    static PERSONA: RefCell<StableCell<Cbor<String>, RM>> =
-        RefCell::new(StableCell::init(
-            RM::new(DefaultMemoryImpl::default(), 0..PERSONA_PAGES),
-            Cbor::default(),
-        ).expect("failed to initialize the metadata cell")
-        );          
-    static DEFAULT_PERSONA:  RefCell<StableCell<Cbor<String>, RM>> =
-        RefCell::new(StableCell::init(
-            RM::new(DefaultMemoryImpl::default(), 0..PERSONA_PAGES),
-            Cbor::default(),
-        ).expect("failed to initialize the metadata cell")
-        );  
 
-    static PATO_NAME: RefCell<StableLog<Cbor<String>, VM, VM>> =
-        MEMORY_MANAGER.with(|mm| {
-          RefCell::new(StableLog::init(
-            mm.borrow().get(LOG_NAME_INDX_MEM_ID),
-            mm.borrow().get(LOG_NAME_DATA_MEM_ID),
-          ).expect("failed to initialize the name record"))
-        });
     static SESSIONS: RefCell<StableLog<String, VM, VM>> =
         MEMORY_MANAGER.with(|mm| {
           RefCell::new(StableLog::init(
@@ -122,22 +101,12 @@ impl MetaPowerMatrixControllerService {
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             session TEXT NOT NULL,
-            place TEXT NOT NULL,
             sender TEXT NOT NULL,
             receiver TEXT NOT NULL,
-            question TEXT NOT NULL,
-            answer TEXT NOT NULL
+            message TEXT NOT NULL,
         )";
 
         MetapowerSqlite3::new().create_table(message_table.to_owned())?;
-
-        Ok(())
-    }
-    fn update_name_file(&self, _: String, name: String) -> Result<(), Error> {
-        match PATO_NAME.with(|v| v.borrow_mut().append(&Cbor(name))){
-            Ok(ret) => (),
-            Err(e) => return Err(anyhow!(format!("failed to append name: {:?}", e))),
-        }
 
         Ok(())
     }
@@ -161,9 +130,8 @@ impl MetaPowerMatrixControllerService {
             }
         }
 
-        let request = AirdropRequest { id, amount: 100.0 };
         let (_resp,): (SimpleResponse,) =
-            match call(callee, "request_airdrop", (request,)).await {
+            match call(callee, "request_airdrop", (100.0, id)).await {
                 Ok(response) => response,
                 Err((code, msg)) => return Err(format!("pato空投失败: {}: {}", code as u8, msg)),
             };
@@ -179,31 +147,6 @@ impl MetaPowerMatrixControllerService {
         );
 
         books
-    }
-    fn create_pato_iss(&self, id: String, name: String, default_person: String) -> Result<(), Error> {
-        PERSONA.with(|v|{
-            v.borrow_mut().set(Cbor(default_person));
-        });
-
-        Ok(())
-    }
-    pub fn get_all_categories(&self) -> Vec<&str> {
-        let activity_categories = self.get_event_category();
-        let mut all_categories = vec![];
-        for (_, v) in activity_categories.iter() {
-            all_categories.extend(v.clone());
-        }
-        all_categories
-    }
-    pub fn get_event_category(&self) -> HashMap<&'static str, Vec<&'static str>> {
-        HashMap::from([
-            ("eat", vec!["cafe"]),
-            ("work", vec!["office building", "library"]),
-            ("learn", vec!["library", "school"]),
-            ("commuting", vec!["airport"]),
-            ("entertainment", vec!["museum"]),
-            ("shopping", vec!["shopping mall"]),
-        ])
     }
 
     pub fn request_pato_login(
@@ -224,35 +167,25 @@ impl MetaPowerMatrixControllerService {
         let (bytes,): (Vec<u8>,) = ic_cdk::api::call::call(Principal::management_canister(), "raw_rand", ()).await.unwrap_or_default();
         // let pato_id = bytes.iter().map(|b| format!("{:02x}", b)).collect::<String>();
         let pato_id = bytes.iter().fold("".to_string(), |mut acc, a| { write!(acc, "{:02x}", a).unwrap_or_default(); acc});
+        log!("create pato {}", pato_id);
 
         if let Err(e) = self.create_pato_db() {
             log!("pato数据库创建失败: {}", e);
             create_pato_success = false;
         }
-        let mut sn = 0;
+
         match self
             .prepare_pato_db(pato_id.clone(), request.name.clone())
             .await
         {
             Ok(last_sn) => {
-                sn = last_sn;
+                log!("pato {} sn {}", pato_id, last_sn);
             }
             Err(e) => {
                 log!("pato注册失败: {}", e);
                 create_pato_success = false;
             }
         }
-        if let Err(e) = self.update_name_file(pato_id.clone(), request.name.clone()) {
-            log!("pato名称文件更新失败: {}", e);
-            create_pato_success = false;
-        }
-
-        DEFAULT_PERSONA.with(|v| {
-            let tmp = v.borrow();
-            let persona =  tmp.get();
-            let _ = self.create_pato_iss(pato_id.clone(), request.name.clone(), persona.deref().to_string());
-        });
-
 
         let response = if create_pato_success {
             CreateResonse {

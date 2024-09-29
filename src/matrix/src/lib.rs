@@ -165,6 +165,13 @@ thread_local! {
     static BATTERY_CALLEE: RefCell<HashMap<String, Principal>> = RefCell::new(HashMap::new());
 }
 
+#[ic_cdk::init]
+fn init() {
+    unsafe {
+        OWNER = caller();
+    }
+}
+
 fn _only_owner() {
     unsafe {
        if OWNER != caller() {
@@ -188,7 +195,7 @@ fn initialize(name: String) -> Result<(), ()> {
        }
 
        INITIALIZED = true;
-       OWNER = caller();
+    //    OWNER = caller();
 
        MATRIX_NAME.with(|matrix| {
         *matrix.borrow_mut() = name;

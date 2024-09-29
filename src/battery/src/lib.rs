@@ -10,7 +10,7 @@ use id::MetaPowerMatrixBatteryService;
 use metapower_framework::{dao::http::send_http_post_request, AnswerReply, BestTalkRequest, MessageRequest, SomeDocs};
 use serde::de::DeserializeOwned;
 
-const LLM_PROXY_HOST: &str = "api.metapowermatrix.ai";
+const LLM_PROXY_HOST: &str = "icp.metapowermatrix.ai";
 
 struct LLMSvcClient {
     pub host: String,
