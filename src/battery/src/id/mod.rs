@@ -1,7 +1,6 @@
 pub mod identity;
 
 use anyhow::{anyhow, Error};
-use candid::Principal;
 use ic_cdk::call;
 use metapower_framework::dao::crawler::download_image;
 use metapower_framework::AI_PATO_DIR;
@@ -210,7 +209,7 @@ impl MetaPowerMatrixBatteryService {
                             ids.push(message.receiver.clone());
                         }
                         let callee =
-                            AGENT_CALLEE.with(|callee| callee.borrow().as_ref().unwrap().clone());
+                            AGENT_CALLEE.with(|callee| *callee.borrow().as_ref().unwrap());
                         let (name_pro_resp,): (NameResponse,) =
                             match call(callee, "request_pato_by_ids", (ids.clone(),)).await {
                                 Ok(response) => response,
@@ -390,7 +389,7 @@ impl MetaPowerMatrixBatteryService {
         {
             Ok(answer) => {
                 response.answer = answer.answer.clone();
-                let _ = publish_battery_actions(
+                publish_battery_actions(
                     request.reply_to.clone() + "/instruct",
                     answer.answer.clone(),
                 );
@@ -425,7 +424,7 @@ impl MetaPowerMatrixBatteryService {
                 {
                     Ok(audio_file) => {
                         let audio_url = XFILES_SERVER.to_string() + "/" + &audio_file.audio_url;
-                        let _ = publish_battery_actions(
+                        publish_battery_actions(
                             request.reply_to.clone() + "/instruct/voice",
                             audio_url,
                         );
@@ -988,7 +987,7 @@ impl MetaPowerMatrixBatteryService {
         }
 
         let message = format!("notification:{}发送答案", gamer_name);
-        let _ = publish_battery_actions(room_id.clone(), message);
+        publish_battery_actions(room_id.clone(), message);
 
         let prompt = format!(
             r#"请仔细阅读下面的背景说明：
@@ -1023,7 +1022,7 @@ impl MetaPowerMatrixBatteryService {
             Ok(answer) => {
                 log!("check_game_answer: {:?}", answer.answer);
                 if answer.answer.contains("yes") || answer.answer.contains("Yes") {
-                    let _ = publish_battery_actions(
+                    publish_battery_actions(
                         room_id.clone(),
                         format!("notification:{}回答正确", gamer_name),
                     );
@@ -1122,7 +1121,7 @@ impl MetaPowerMatrixBatteryService {
         &self,
         request: BecomeKolRequest,
     ) -> std::result::Result<EmptyRequest, Error> {
-        let callee = AGENT_CALLEE.with(|callee| callee.borrow().as_ref().unwrap().clone());
+        let callee = AGENT_CALLEE.with(|callee| *callee.borrow().as_ref().unwrap());
         let (reg_resp,): (EmptyRequest,) = match call(
             callee,
             "request_kol_registration",
@@ -1141,7 +1140,7 @@ impl MetaPowerMatrixBatteryService {
         &self,
         request: JoinKolRoomRequest,
     ) -> std::result::Result<EmptyRequest, Error> {
-        let callee = AGENT_CALLEE.with(|callee| callee.borrow().as_ref().unwrap().clone());
+        let callee = AGENT_CALLEE.with(|callee| *callee.borrow().as_ref().unwrap());
         let (follow_resp,): (EmptyRequest,) = match call(
             callee,
             "request_add_kol_follower",
@@ -1255,7 +1254,7 @@ impl MetaPowerMatrixBatteryService {
                     .await
                 {
                     Ok(answer) => {
-                        let _ = publish_battery_actions(send_to.clone(), answer.answer.clone());
+                        publish_battery_actions(send_to.clone(), answer.answer.clone());
                     }
                     Err(e) => {
                         log!(

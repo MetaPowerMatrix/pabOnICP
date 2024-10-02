@@ -1,7 +1,7 @@
 pub mod controller;
 pub mod runner;
 
-use std::{cell::RefCell, collections::HashMap};
+use std::cell::RefCell;
 use candid::{CandidType, Principal};
 use controller::MetaPowerMatrixControllerService;
 use ic_cdk::{caller, id};
