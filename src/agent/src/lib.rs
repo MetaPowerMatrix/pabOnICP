@@ -73,7 +73,7 @@ pub fn get_population_quantities() -> u64 {
 }
 
 #[ic_cdk::update]
-async fn request_airdrop(amount: f32, id: String) -> Result<SimpleResponse, String> {
+async fn request_airdrop(amount: f32, id: String) -> SimpleResponse {
     _must_initialized();
     let request = AirdropRequest {
         id,
@@ -81,8 +81,10 @@ async fn request_airdrop(amount: f32, id: String) -> Result<SimpleResponse, Stri
     };
 
    match MetaPowerMatrixAgentService::new().request_airdrop(request).await {
-         Ok(response) => Ok(response),
-         Err(err) => Err(err.to_string()),   
+         Ok(response) => response,
+         Err(err) => {
+            ic_cdk::trap(&err.to_string());
+        },
    }
 }
 

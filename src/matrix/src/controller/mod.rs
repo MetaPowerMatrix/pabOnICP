@@ -130,8 +130,9 @@ impl MetaPowerMatrixControllerService {
             }
         }
 
+        let bonus_register = 100.0_f32;
         let (_resp,): (SimpleResponse,) =
-            match call(callee, "request_airdrop", (100.0, id)).await {
+            match call(callee, "request_airdrop", (bonus_register, id)).await {
                 Ok(response) => response,
                 Err((code, msg)) => return Err(format!("pato空投失败: {}: {}", code as u8, msg)),
             };
@@ -182,7 +183,7 @@ impl MetaPowerMatrixControllerService {
             }
             Err(e) => {
                 create_pato_success = false;
-                ic_cdk::trap(&format!("pato注册失败: {}", e));
+                ic_cdk::trap(&e);
             }
         }
 
