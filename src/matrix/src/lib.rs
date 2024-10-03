@@ -213,14 +213,14 @@ pub fn setup_agent_canister(_id: String, agent_canister: Principal) {
 }
 
 #[ic_cdk::update]
-async fn request_create_pato(name: String) -> Result<CreateResonse, String>{
+async fn request_create_pato(name: String) -> CreateResonse{
     _must_initialized();
     let request = CreateRequest {
         name,
     };
     match MetaPowerMatrixControllerService::default().request_create_pato(request).await{
-        Ok(response) => Ok(response),
-        Err(err) => Err(err.to_string()),
+        Ok(response) => response,
+        Err(err) => ic_cdk::trap(&err.to_string()),
     }
 }
 

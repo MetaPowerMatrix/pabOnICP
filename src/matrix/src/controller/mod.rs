@@ -3,7 +3,7 @@ use std::cell::RefCell;
 use std::collections::HashSet;
 use std::vec;
 use std::fmt::Write;
-use anyhow::Error;
+use anyhow::{anyhow, Error};
 use candid::Principal;
 use ic_stable_structures::storable::Bound;
 use ic_stable_structures::{StableCell, DefaultMemoryImpl, RestrictedMemory, StableBTreeMap, StableLog, Storable};
@@ -163,15 +163,12 @@ impl MetaPowerMatrixControllerService {
         &self,
         request: CreateRequest,
     ) -> std::result::Result<CreateResonse, Error> {
-        let mut create_pato_success = true;
-
         let (bytes,): (Vec<u8>,) = ic_cdk::api::call::call(Principal::management_canister(), "raw_rand", ()).await.unwrap_or_default();
         // let pato_id = bytes.iter().map(|b| format!("{:02x}", b)).collect::<String>();
         let pato_id = bytes.iter().fold("".to_string(), |mut acc, a| { write!(acc, "{:02x}", a).unwrap_or_default(); acc});
 
         if let Err(e) = self.create_pato_db() {
-            println!("pato数据库创建失败: {}", e);
-            create_pato_success = false;
+            return Err(anyhow!("message数据库创建失败: {}", e));
         }
 
         match self
@@ -182,17 +179,12 @@ impl MetaPowerMatrixControllerService {
                 println!("pato {} sn {}", pato_id, last_sn);
             }
             Err(e) => {
-                create_pato_success = false;
-                ic_cdk::trap(&e);
+                return Err(anyhow!("agent数据库创建失败: {}", e));
             }
         }
 
-        let response = if create_pato_success {
-            CreateResonse {
-                id: pato_id.clone(),
-            }
-        } else {
-            CreateResonse { id: "".to_string() }
+        let response = CreateResonse {
+            id: pato_id.clone(),
         };
 
         Ok(response)
