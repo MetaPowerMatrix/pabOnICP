@@ -167,7 +167,6 @@ impl MetaPowerMatrixControllerService {
         let (bytes,): (Vec<u8>,) = ic_cdk::api::call::call(Principal::management_canister(), "raw_rand", ()).await.unwrap_or_default();
         // let pato_id = bytes.iter().map(|b| format!("{:02x}", b)).collect::<String>();
         let pato_id = bytes.iter().fold("".to_string(), |mut acc, a| { write!(acc, "{:02x}", a).unwrap_or_default(); acc});
-        println!("create pato {}", pato_id);
 
         if let Err(e) = self.create_pato_db() {
             println!("pato数据库创建失败: {}", e);
@@ -184,7 +183,6 @@ impl MetaPowerMatrixControllerService {
             Err(e) => {
                 create_pato_success = false;
                 ic_cdk::trap(&format!("pato注册失败: {}", e));
-                // println!("pato注册失败: {}", e);
             }
         }
 

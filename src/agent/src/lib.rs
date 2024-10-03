@@ -87,7 +87,7 @@ async fn request_airdrop(amount: f32, id: String) -> Result<SimpleResponse, Stri
 }
 
 #[ic_cdk::update]
-async fn request_population_registration(name: String, id: String) -> Result<SimpleResponse, String> {
+async fn request_population_registration(name: String, id: String) -> SimpleResponse {
     _must_initialized();
     let request = PopulationRegistrationRequest {
         id: id.clone(),
@@ -105,9 +105,12 @@ async fn request_population_registration(name: String, id: String) -> Result<Sim
             BATTERY_CALLEE.with(|callee| {
                 callee.borrow_mut().entry(id).and_modify(|v| *v = (v.0, token.clone())).or_insert((response.message.parse::<i64>().unwrap_or(-1), token));
             });
-            Ok(response)
+
+            response
         }
-        Err(err) => Err(err.to_string()),
+        Err(err) => {
+            ic_cdk::trap(&err.to_string());
+        },
     }
 }
 

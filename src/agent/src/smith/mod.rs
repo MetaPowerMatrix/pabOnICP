@@ -171,7 +171,7 @@ impl MetaPowerMatrixAgentService {
                 success = true;
             }
             Err(e) => {
-                println!("Error: {}", e);
+                return Err(e);
             }
         }
 
@@ -183,7 +183,7 @@ impl MetaPowerMatrixAgentService {
                 success = true;
             }
             Err(e) => {
-                println!("Error: {}", e);
+                return Err(e);
             }
         }
 
