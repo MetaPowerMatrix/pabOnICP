@@ -182,8 +182,9 @@ impl MetaPowerMatrixControllerService {
                 println!("pato {} sn {}", pato_id, last_sn);
             }
             Err(e) => {
-                println!("pato注册失败: {}", e);
                 create_pato_success = false;
+                ic_cdk::trap(&format!("pato注册失败: {}", e));
+                // println!("pato注册失败: {}", e);
             }
         }
 
