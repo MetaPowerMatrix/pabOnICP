@@ -146,14 +146,14 @@ pub async fn get_battery_auth(id: String) -> Option<(i64, String)> {
 }
 
 #[ic_cdk::query]
-fn request_pato_info(id: String) -> Result<PatoInfoResponse, String> {
+fn request_pato_info(id: String) -> PatoInfoResponse {
     _must_initialized();
     let request = SimpleRequest {
         id,
     };
     match MetaPowerMatrixAgentService::new().request_pato_info(request){
-        Ok(response) => Ok(response),
-        Err(err) => Err(err.to_string()),
+        Ok(response) => response,
+        Err(err) => ic_cdk::trap(&err.to_string()),
     }
 }
 

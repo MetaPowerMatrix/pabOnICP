@@ -55,13 +55,6 @@ thread_local! {
             mm.borrow().get(LOG_NAME_DATA_MEM_ID),
           ).expect("failed to initialize the session record"))
         });
-    static TAGS: RefCell<StableLog<String, VM, VM>> =
-        MEMORY_MANAGER.with(|mm| {
-          RefCell::new(StableLog::init(
-            mm.borrow().get(LOG_TAG_INDX_MEM_ID),
-            mm.borrow().get(LOG_TAG_DATA_MEM_ID),
-          ).expect("failed to initialize the session record"))
-        });
 }
 
 //TO-DO-IC-Storage
@@ -198,20 +191,13 @@ impl MetaPowerMatrixAgentService {
     pub fn request_pato_info(
         &self,
         request: SimpleRequest,
-    ) -> std::result::Result<PatoInfoResponse, Error> {
+    ) -> Result<PatoInfoResponse, Error> {
         let id = request.id.clone();
         let select_id_table = format!("select * from pato where id = \"{}\"", id.clone());
         println!("select_id_table sql: {}", select_id_table);
 
         let avatar_link = format!("{}/avatar/{}/avatar.png", XFILES_SERVER, id);
         
-        let mut tags: Vec<String> = vec![];
-        TAGS.with(|v|{
-            for tag in v.borrow().iter(){
-                tags.push(tag);
-            }
-        });
-
         let mut pato_info: PatoInfoResponse = PatoInfoResponse::default();
         match MetapowerSqlite3::query_db(
             &select_id_table,
@@ -230,14 +216,13 @@ impl MetaPowerMatrixAgentService {
                         registered_datetime,
                         professionals: vec![],
                         balance: 0.0,
-                        tags,
+                        tags: vec![],
                         avatar: avatar_link,
                     };
                 }
             }
             Err(e) => {
-                println!("Error: {}", e);
-                return Err(anyhow!("pato not found"));
+                return Err(e);
             }
         }
 
@@ -255,8 +240,7 @@ impl MetaPowerMatrixAgentService {
                 }
             }
             Err(e) => {
-                println!("Error: {}", e);
-                return Err(anyhow!("professionals subject not found"));
+                return Err(e);
             }
         }
 
