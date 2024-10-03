@@ -984,6 +984,14 @@ pub fn read_and_writeback_json_file<T: DeserializeOwned + Serialize>(file_path: 
 }
 
 
+crate::ic_canister_log::declare_log_buffer!(name = LOG, capacity = 100);
+
+pub fn print_log_entries() {
+    for entry in crate::ic_canister_log::export(&LOG) {
+      println!("{}:{} {}", entry.file, entry.line, entry.message);
+    }
+}
+
 #[macro_export]
 macro_rules! log {
     ($fmt:literal $(, $($arg:tt)+)?) => {
@@ -992,6 +1000,7 @@ macro_rules! log {
 
             let system_time = ic_cdk::api::time();
             let formatted_msg = format!("[{:?}][{}]{}", system_time, ic_cdk::id(), format_args!($fmt $(, $($arg)+)?));
-            $crate::ic_canister_log::log!(LOG, "{}", formatted_msg);        }
+            $crate::ic_canister_log::log!(LOG, "{}", formatted_msg);        
+        }
     };
 }

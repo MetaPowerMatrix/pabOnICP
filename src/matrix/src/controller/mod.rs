@@ -167,10 +167,10 @@ impl MetaPowerMatrixControllerService {
         let (bytes,): (Vec<u8>,) = ic_cdk::api::call::call(Principal::management_canister(), "raw_rand", ()).await.unwrap_or_default();
         // let pato_id = bytes.iter().map(|b| format!("{:02x}", b)).collect::<String>();
         let pato_id = bytes.iter().fold("".to_string(), |mut acc, a| { write!(acc, "{:02x}", a).unwrap_or_default(); acc});
-        log!("create pato {}", pato_id);
+        println!("create pato {}", pato_id);
 
         if let Err(e) = self.create_pato_db() {
-            log!("pato数据库创建失败: {}", e);
+            println!("pato数据库创建失败: {}", e);
             create_pato_success = false;
         }
 
@@ -179,10 +179,10 @@ impl MetaPowerMatrixControllerService {
             .await
         {
             Ok(last_sn) => {
-                log!("pato {} sn {}", pato_id, last_sn);
+                println!("pato {} sn {}", pato_id, last_sn);
             }
             Err(e) => {
-                log!("pato注册失败: {}", e);
+                println!("pato注册失败: {}", e);
                 create_pato_success = false;
             }
         }
@@ -202,7 +202,7 @@ impl MetaPowerMatrixControllerService {
         _request: EmptyRequest,
     ) -> std::result::Result<HotAiResponse, String> {
         let mut all_ais: Vec<HotAi> = vec![];
-        let callee = CALLEE.with(|callee| callee.borrow().as_ref().unwrap().clone());
+        let callee = CALLEE.with(|callee| *callee.borrow().as_ref().unwrap());
 
         let (patos_resp,): (AllPatosResponse,) =
             match call(callee, "request_all_patos", ()).await {
