@@ -103,7 +103,7 @@ impl MetaPowerMatrixControllerService {
             session TEXT NOT NULL,
             sender TEXT NOT NULL,
             receiver TEXT NOT NULL,
-            message TEXT NOT NULL,
+            message TEXT NOT NULL
         )";
 
         MetapowerSqlite3::new().create_table(message_table.to_owned())?;
