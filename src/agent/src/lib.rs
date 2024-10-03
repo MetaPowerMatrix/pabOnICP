@@ -49,6 +49,7 @@ fn initialize(name: String) -> Result<(), ()> {
        }
 
        INITIALIZED = true;
+       OWNER = caller();
        AGENT_NAME.with(|agent| {
         *agent.borrow_mut() = name;
        });
