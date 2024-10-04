@@ -19,7 +19,6 @@ serde_with = "3.2.0"
 serde_json = "1.0.79"
 metapower_framework = { path = "../framework" }
 anyhow = "1.0.38"
-tokio = { version = "1.20", features = ["macros", "rt-multi-thread"] }
 regex = "1.10.3"
 tempfile = "3.10.1"
 infer = "0.15.0"

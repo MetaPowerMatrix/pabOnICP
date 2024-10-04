@@ -1241,8 +1241,6 @@ impl MetaPowerMatrixBatteryService {
         _request: EmptyRequest,
     ) -> std::result::Result<EmptyRequest, Error> {
         let send_to = self.id.clone();
-        tokio::spawn(async move {
-            loop {
                 let client = LLMSvcClient::default();
                 let chat_request = QuestionRequest {
                     subject: String::default(),
@@ -1263,8 +1261,6 @@ impl MetaPowerMatrixBatteryService {
                         );
                     }
                 }
-            }
-        });
 
         Ok(EmptyRequest {})
     }
