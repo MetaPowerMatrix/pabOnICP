@@ -22,10 +22,10 @@
         }
       ]
     },
-    "battery": {
-      "build": "make battery",
-      "candid": "src/battery/battery_canister.did",
-      "wasm": "target/wasm32-unknown-unknown/release/battery_canister_opt.wasm",
+    "pato": {
+      "build": "make pato",
+      "candid": "src/battery/pato_canister.did",
+      "wasm": "target/wasm32-unknown-unknown/release/pato_canister_opt.wasm",
       "type": "custom",
       "metadata": [
         {
