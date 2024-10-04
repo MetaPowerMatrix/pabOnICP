@@ -211,3 +211,4 @@ pub async fn do_battery_service(id: String, token: String, sn: i64, method_name:
     }
 }
 
+ic_cdk::export_candid!();
