@@ -131,6 +131,27 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
 
 [[package]]
+name = "battery_canister"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "candid 0.10.10",
+ "ic-cdk 0.13.5",
+ "ic-cdk-macros 0.13.2",
+ "ic-cdk-timers 0.7.0",
+ "ic-stable-structures",
+ "infer 0.15.0",
+ "metapower_framework",
+ "regex",
+ "serde",
+ "serde_bytes",
+ "serde_cbor",
+ "serde_json",
+ "serde_with",
+ "tempfile",
+]
+
+[[package]]
 name = "beef"
 version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1436,27 +1457,6 @@ name = "paste"
 version = "1.0.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "57c0d7b74b563b49d38dae00a0c37d4d6de9b432382b2892f0574ddcae73fd0a"
-
-[[package]]
-name = "pato_canister"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "candid 0.10.10",
- "ic-cdk 0.13.5",
- "ic-cdk-macros 0.13.2",
- "ic-cdk-timers 0.7.0",
- "ic-stable-structures",
- "infer 0.15.0",
- "metapower_framework",
- "regex",
- "serde",
- "serde_bytes",
- "serde_cbor",
- "serde_json",
- "serde_with",
- "tempfile",
-]
 
 [[package]]
 name = "petgraph"
