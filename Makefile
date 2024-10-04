@@ -13,7 +13,7 @@ matrix:
 	wasm-opt -Os --enable-simd --enable-bulk-memory   -o ./target/wasm32-unknown-unknown/release/matrix_canister_opt.wasm  \
         ./target/wasm32-unknown-unknown/release/matrix_canister.wasm 
 
-pato:
-	cargo build --target wasm32-unknown-unknown --package pato_canister --release
-	wasm-opt -Os --enable-simd --enable-bulk-memory   -o ./target/wasm32-unknown-unknown/release/pato_canister_opt.wasm  \
-        ./target/wasm32-unknown-unknown/release/pato_canister.wasm 
+battery:
+	cargo build --target wasm32-unknown-unknown --package battery_canister --release
+	wasm-opt -Os --enable-simd --enable-bulk-memory   -o ./target/wasm32-unknown-unknown/release/battery_canister_opt.wasm  \
+        ./target/wasm32-unknown-unknown/release/battery_canister.wasm 
