@@ -224,21 +224,11 @@ async fn request_create_pato(name: String) -> CreateResonse{
     }
 }
 
-#[ic_cdk::update]
+#[ic_cdk::query]
 async fn request_hot_ai() -> Result<HotAiResponse, String>{
     _must_initialized();
     let request = EmptyRequest {    };
     match MetaPowerMatrixControllerService::default().request_hot_ai(request).await{
-        Ok(response) => Ok(response),
-        Err(err) => Err(err.to_string()),
-    }
-}
-
-#[ic_cdk::update]
-async fn request_hot_topics() -> Result<HotTopicResponse, String>{
-    _must_initialized();
-    let request = EmptyRequest {    };
-    match MetaPowerMatrixControllerService::default().request_hot_topics(request).await{
         Ok(response) => Ok(response),
         Err(err) => Err(err.to_string()),
     }

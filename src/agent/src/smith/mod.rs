@@ -1,61 +1,26 @@
-use candid::Principal;
-use ic_stable_structures::memory_manager::{
-    MemoryId, MemoryManager as MM, VirtualMemory
-};
-use ic_stable_structures::{DefaultMemoryImpl, StableLog, RestrictedMemory, StableBTreeMap};
-use metapower_framework::dao::http::send_http_post_request;
-use metapower_framework::{
-    AirdropRequest, AllPatosResponse, ChangeBalanceRequest, EmptyRequest, FollowKolRequest, ImageGenRequest, InjectHumanVoiceRequest, KolListResponse, KolRegistrationRequest, KolRelations, MessageRequest, NamePros, NameRequest, NameResponse, PatoInfoResponse, PatoOfPro, PatoOfProResponse, PopulationRegistrationRequest, ProfessionalsResponse, RoomCreateRequest, RoomCreateResponse, RoomInfo, RoomListResponse, SimpleRequest, SimpleResponse, SnIdPaire, SnRequest, SnResponse, TokenRequest, TokenResponse, TopicChatHisResponse, TopicChatRequest, UserActiveRequest
-};
 use anyhow::{anyhow, Error};
+use candid::Principal;
 use metapower_framework::dao::crawler::download_image;
+use metapower_framework::dao::http::send_http_post_request;
 use metapower_framework::{
     dao::sqlite::MetapowerSqlite3, log, read_and_writeback_json_file, ChatMessage, AI_PATO_DIR,
 };
 use metapower_framework::{
-    AI_MATRIX_DIR, BATTERY_GRPC_REST_SERVER, BATTERY_GRPC_SERVER_PORT_START, LLMCHAT_GRPC_REST_SERVER, OFFICIAL_PATO, XFILES_LOCAL_DIR, XFILES_SERVER
+    AirdropRequest, ChangeBalanceRequest, EmptyRequest, FollowKolRequest, ImageGenRequest,
+    InjectHumanVoiceRequest, KolListResponse, KolRegistrationRequest, KolRelations, MessageRequest,
+    NamePros, NameRequest, NameResponse, PatoInfo, PatoInfoResponse, PopulationRegistrationRequest,
+    ProfessionalsResponse, RoomCreateRequest, RoomCreateResponse, RoomInfo, RoomListResponse,
+    SimpleRequest, SimpleResponse, SnIdPaire, SnRequest, SnResponse, TokenRequest, TokenResponse,
+    TopicChatHisResponse, TopicChatRequest, UserActiveRequest,
+};
+use metapower_framework::{
+    BATTERY_GRPC_REST_SERVER, BATTERY_GRPC_SERVER_PORT_START, LLMCHAT_GRPC_REST_SERVER,
+    OFFICIAL_PATO, XFILES_LOCAL_DIR, XFILES_SERVER,
 };
 use sha1::Digest;
-use std::cell::RefCell;
 use std::collections::HashMap;
 
-type RM = RestrictedMemory<DefaultMemoryImpl>;
-type VM = VirtualMemory<RM>;
-
-const TOPICS_MEM_ID: MemoryId = MemoryId::new(0);
-const LOG_INDX_MEM_ID: MemoryId = MemoryId::new(1);
-const LOG_DATA_MEM_ID: MemoryId = MemoryId::new(2);
-const LOG_NAME_INDX_MEM_ID: MemoryId = MemoryId::new(3);
-const LOG_NAME_DATA_MEM_ID: MemoryId = MemoryId::new(4);
-const LOG_TAG_INDX_MEM_ID: MemoryId = MemoryId::new(5);
-const LOG_TAG_DATA_MEM_ID: MemoryId = MemoryId::new(6);
-const METADATA_PAGES: u64 = 16;
-
-thread_local! {
-    static MEMORY_MANAGER: RefCell<MM<RM>> = RefCell::new(
-        MM::init(RM::new(DefaultMemoryImpl::default(), METADATA_PAGES..u64::MAX))
-        );
-    static BATTERY_CALLEE: RefCell<HashMap<String, Principal>> = RefCell::new(HashMap::new());
-
-    static TOPICS: RefCell<StableBTreeMap<String, String, VM>> =
-        MEMORY_MANAGER.with(|mm| {
-            RefCell::new(StableBTreeMap::init(mm.borrow().get(TOPICS_MEM_ID)))
-        });
-    static ROOM_SCENES: RefCell<StableLog<String, VM, VM>> =
-        MEMORY_MANAGER.with(|mm| {
-          RefCell::new(StableLog::init(
-            mm.borrow().get(LOG_INDX_MEM_ID),
-            mm.borrow().get(LOG_DATA_MEM_ID),
-          ).expect("failed to initialize the session record"))
-        });
-    static ROOM_NAMES: RefCell<StableLog<String, VM, VM>> =
-        MEMORY_MANAGER.with(|mm| {
-          RefCell::new(StableLog::init(
-            mm.borrow().get(LOG_NAME_INDX_MEM_ID),
-            mm.borrow().get(LOG_NAME_DATA_MEM_ID),
-          ).expect("failed to initialize the session record"))
-        });
-}
+use crate::BATTERY_CALLEE;
 
 //TO-DO-IC-Storage
 fn generate_prompt(curr_input: Vec<String>, prompt: String) -> String {
@@ -96,20 +61,24 @@ impl MetaPowerMatrixAgentService {
         }
     }
 
-    fn get_pato_name(&self, id: String) -> Option<Principal> {
-        BATTERY_CALLEE.with(|callee| {
-            let name = callee.borrow();
-            name.get(&id).cloned()
+    fn get_pato_name(&self, id: String) -> Option<String> {
+        let mut name = None;
+        BATTERY_CALLEE.with(|v| match v.borrow().get(&id) {
+            Some(json_str) => {
+                if let Ok(info) = serde_json::from_str::<PatoInfo>(&json_str) {
+                    name = Some(info.name);
+                }
+            }
+            None => {}
         });
 
-        None
+        name
     }
 
     pub async fn request_airdrop(
         &self,
         request: AirdropRequest,
     ) -> std::result::Result<SimpleResponse, Error> {
-        let mut success = false;
         let balance_table = "CREATE TABLE IF NOT EXISTS balance (
             sn INTEGER PRIMARY KEY AUTOINCREMENT,
             id TEXT NOT NULL,
@@ -118,28 +87,13 @@ impl MetaPowerMatrixAgentService {
 
         let id = request.id.clone();
         let amount = request.amount;
-        match MetapowerSqlite3::new().create_table(balance_table.to_owned()) {
-            Ok(_) => {
-                success = true;
-            }
-            Err(e) => {
-                return Err(e);
-            }
-        }
+        MetapowerSqlite3::new().create_table(balance_table.to_owned())?;
 
         let add_balance = "INSERT INTO balance (id, amount) VALUES (?1, ?2)";
-
-        match MetapowerSqlite3::new().insert_record(add_balance, &[&id, &amount]) {
-            Ok(_) => {
-                success = true;
-            }
-            Err(e) => {
-                return Err(e);
-            }
-        }
+        MetapowerSqlite3::new().insert_record(add_balance, &[&id, &amount])?;
 
         let response = SimpleResponse {
-            success,
+            success: true,
             message: String::default(),
         };
 
@@ -150,7 +104,11 @@ impl MetaPowerMatrixAgentService {
         &self,
         request: PopulationRegistrationRequest,
     ) -> std::result::Result<SimpleResponse, Error> {
-        let mut success = false;
+        let mut response = SimpleResponse {
+            success: false,
+            message: "-1".to_string(),
+        };
+
         let id_table = "CREATE TABLE IF NOT EXISTS pato (
             sn INTEGER PRIMARY KEY AUTOINCREMENT,
             registered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -159,45 +117,29 @@ impl MetaPowerMatrixAgentService {
         )";
         let id = request.id.clone();
         let name = request.name.clone();
-        match MetapowerSqlite3::new().create_table(id_table.to_owned()) {
-            Ok(_) => {
-                success = true;
-            }
-            Err(e) => {
-                return Err(e);
-            }
-        }
+        MetapowerSqlite3::new().create_table(id_table.to_owned())?;
 
         let prepare_id_table = "INSERT INTO pato (id, name) VALUES (?1, ?2)";
-        let mut sn = 0;
         match MetapowerSqlite3::new().insert_record(prepare_id_table, &[&id, &name]) {
             Ok(last_sn) => {
-                sn = last_sn;
-                success = true;
+                response.message = last_sn.to_string();
+                response.success = true;
             }
             Err(e) => {
                 return Err(e);
             }
         }
-
-        let response = SimpleResponse {
-            success,
-            message: sn.to_string(),
-        };
 
         Ok(response)
     }
 
-    pub fn request_pato_info(
-        &self,
-        request: SimpleRequest,
-    ) -> Result<PatoInfoResponse, Error> {
+    pub fn request_pato_info(&self, request: SimpleRequest) -> Result<PatoInfoResponse, Error> {
         let id = request.id.clone();
         let select_id_table = format!("select * from pato where id = \"{}\"", id.clone());
         println!("select_id_table sql: {}", select_id_table);
 
         let avatar_link = format!("{}/avatar/{}/avatar.png", XFILES_SERVER, id);
-        
+
         let mut pato_info: PatoInfoResponse = PatoInfoResponse::default();
         match MetapowerSqlite3::query_db(
             &select_id_table,
@@ -247,62 +189,26 @@ impl MetaPowerMatrixAgentService {
         Ok(pato_info)
     }
 
-    pub fn request_pato_sn(&self, request: SnRequest) -> std::result::Result<SnResponse, Error> {
-        let mut response = SnResponse { pato_sn_id: vec![] };
-        let ids = request.id.clone();
-        let select_id_table = format!(
-            "select id, sn from pato where id in (\"{}\")",
-            ids.join("\",\"")
-        );
-        // println!("select_id_table sql: {}", select_id_table);
+    pub fn request_pato_count(&self) -> u64 {
+        let mut count = 0;
 
-        match MetapowerSqlite3::query_db(&select_id_table, vec!["id", "sn"]) {
-            Ok(records) => {
-                for record in records {
-                    let id = record.get("id").unwrap().to_string();
-                    let sn = record
-                        .get("sn")
-                        .unwrap()
-                        .parse::<i64>()
-                        .unwrap()
-                        .to_string();
-                    let data = SnIdPaire { id, sn };
-                    response.pato_sn_id.push(data);
-                }
-            }
-            Err(e) => {
-                println!("Error: {}", e);
-                return Err(anyhow!("pato not found"));
-            }
-        }
+        BATTERY_CALLEE.with(|v| {
+            count = v.borrow().len();
+        });
 
-        Ok(response)
+        count
     }
-    pub fn request_for_all_patos(
-        &self,
-        _request: EmptyRequest,
-    ) -> std::result::Result<AllPatosResponse, Error> {
-        let mut response = AllPatosResponse { pato_sn_id: vec![] };
+    pub fn request_for_all_patos(&self) -> std::result::Result<Vec<PatoInfo>, Error> {
+        let mut response = vec![];
 
-        let select_pro_table = "select sn, id from pato";
-
-        match MetapowerSqlite3::query_db(select_pro_table, vec!["id", "sn"]) {
-            Ok(records) => {
-                if !records.is_empty() {
-                    for record in records {
-                        let id = record.get("id").unwrap().to_string();
-                        let sn = record.get("sn").unwrap().to_string();
-                        let pair = SnIdPaire { id, sn };
-                        response.pato_sn_id.push(pair);
-                    }
-                    return Ok(response);
+        BATTERY_CALLEE.with(|v| {
+            let callee = v.borrow();
+            for (_, json_str) in callee.iter() {
+                if let Ok(info) = serde_json::from_str::<PatoInfo>(&json_str) {
+                    response.push(info);
                 }
             }
-            Err(e) => {
-                println!("Error: {}", e);
-                return Err(anyhow!("none of patos"));
-            }
-        }
+        });
 
         Ok(response)
     }
@@ -341,70 +247,42 @@ impl MetaPowerMatrixAgentService {
     pub async fn request_minus_balance(
         &self,
         request: ChangeBalanceRequest,
-    ) -> std::result::Result<SimpleResponse, Error> {
+    ) -> std::result::Result<(), Error> {
         let amount = request.amount;
         let id = request.id.clone();
-        let mut success = false;
 
         let add_balance = format!(
             "UPDATE balance SET amount = amount - {} WHERE id = \"{}\"",
             amount, id
         );
 
-        match MetapowerSqlite3::new().update_table(add_balance.clone()) {
-            Ok(_) => {
-                success = true;
-                log!("update {} success", add_balance);
-            }
-            Err(e) => {
-                log!("Error: {}", e);
-            }
-        }
+        MetapowerSqlite3::new().update_table(add_balance.clone())?;
 
-        let response = SimpleResponse {
-            success,
-            message: String::default(),
-        };
-
-        Ok(response)
+        Ok(())
     }
 
     pub async fn request_deposit(
         &self,
         request: ChangeBalanceRequest,
-    ) -> std::result::Result<SimpleResponse, Error> {
+    ) -> std::result::Result<(), Error> {
         let amount = request.amount * 10.0;
         let id = request.id.clone();
-        let mut success = false;
 
         let add_balance = format!(
             "UPDATE balance SET amount = amount + {} WHERE id = \"{}\"",
             amount, id
         );
 
-        match MetapowerSqlite3::new().update_table(add_balance.clone()) {
-            Ok(_) => {
-                success = true;
-                log!("update {} success", add_balance);
-            }
-            Err(e) => {
-                log!("Error: {}", e);
-            }
-        }
+        MetapowerSqlite3::new().update_table(add_balance.clone())?;
 
-        let response = SimpleResponse {
-            success,
-            message: String::default(),
-        };
-
-        Ok(response)
+        Ok(())
     }
 
     //TO-DO-IC-Storage
     pub fn request_inject_human_voice(
         &self,
         request: InjectHumanVoiceRequest,
-    ) -> std::result::Result<EmptyRequest, Error> {
+    ) -> std::result::Result<(), Error> {
         let roles = request.roles.clone();
         let session = request.session.clone();
 
@@ -422,19 +300,18 @@ impl MetaPowerMatrixAgentService {
                 subject: "".to_string(),
             };
             let message_file = active_session_path.clone() + "/message.json";
-            log!("write messages {:?} to file {}", chat_message, message_file);
-            if let Err(e) = read_and_writeback_json_file(&message_file, &mut vec![chat_message]) {
-                log!("read_and_writeback_json_file error for receiver: {}", e);
-            }
+
+            read_and_writeback_json_file(&message_file, &mut vec![chat_message])?;
         }
-        Ok(EmptyRequest {})
+
+        Ok(())
     }
 
     pub async fn request_pato_auth_token(
         &self,
         request: SimpleRequest,
     ) -> std::result::Result<SimpleResponse, Error> {
-        let auth_table = "CREATE TABLE IF NOT EXISTS auth_token (
+        let auth_table = "CREATE TABLE IF NOT EXISTS kol_auth_token (
             sn INTEGER PRIMARY KEY AUTOINCREMENT,
             registered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             id TEXT NOT NULL,
@@ -442,36 +319,29 @@ impl MetaPowerMatrixAgentService {
             token TEXT NOT NULL
         )";
         let id = request.id.clone();
-        let name = match self.get_pato_name(id.clone()){
+        let name = match self.get_pato_name(id.clone()) {
             Some(name) => name.to_string(),
-            None => Err(anyhow!("pato not found"))?,
+            None => Err(anyhow!("pato not registered"))?,
         };
 
-        let (bytes,): (Vec<u8>,) = ic_cdk::api::call::call(Principal::management_canister(), "raw_rand", ()).await.unwrap_or_default();
-        let uuid = bytes.iter().map(|b| format!("{:02x}", b)).collect::<String>();
+        let (bytes,): (Vec<u8>,) =
+            ic_cdk::api::call::call(Principal::management_canister(), "raw_rand", ())
+                .await
+                .unwrap_or_default();
+        let uuid = bytes
+            .iter()
+            .map(|b| format!("{:02x}", b))
+            .collect::<String>();
         let mut hasher = sha1::Sha1::new();
         hasher.update(uuid.as_bytes());
-        let token = format!("{:x}", hasher.finalize());
+        let token = format!("KT{:x}", hasher.finalize());
 
-        match MetapowerSqlite3::new().create_table(auth_table.to_owned()) {
-            Ok(_) => {
-                log!("create auth table success");
-            }
-            Err(e) => {
-                println!("Error: {}", e);
-            }
-        }
+        MetapowerSqlite3::new().create_table(auth_table.to_owned())?;
 
-        let prepare_token_table = "INSERT INTO auth_token (id, name, token) VALUES (?1, ?2, ?3)";
+        let prepare_token_table =
+            "INSERT INTO kol_auth_token (id, name, token) VALUES (?1, ?2, ?3)";
 
-        match MetapowerSqlite3::new().insert_record(prepare_token_table, &[&id, &name, &token]) {
-            Ok(_) => {
-                log!("insert live table success");
-            }
-            Err(e) => {
-                println!("Error: {}", e);
-            }
-        }
+        MetapowerSqlite3::new().insert_record(prepare_token_table, &[&id, &name, &token])?;
 
         Ok(SimpleResponse {
             success: true,
@@ -479,12 +349,12 @@ impl MetaPowerMatrixAgentService {
         })
     }
 
-    pub fn query_pato_auth_token(
+    pub fn query_pato_by_auth_token(
         &self,
         request: TokenRequest,
     ) -> std::result::Result<TokenResponse, Error> {
         let select_pro_table = format!(
-            "select * from auth_token where token = \"{}\" order by registered_at",
+            "select * from kol_auth_token where token = \"{}\" order by registered_at",
             request.token
         );
         let mut token_info = TokenResponse::default();
@@ -500,13 +370,10 @@ impl MetaPowerMatrixAgentService {
                     }
                     Ok(token_info)
                 } else {
-                    Err(anyhow!("professionals subject not found"))
+                    Err(anyhow!("KOL auth token not registered"))
                 }
             }
-            Err(e) => {
-                println!("Error: {}", e);
-                Err(anyhow!("professionals subject not found"))
-            }
+            Err(e) => Err(e),
         }
     }
 
@@ -545,95 +412,88 @@ impl MetaPowerMatrixAgentService {
     pub async fn request_topic_chat(
         &self,
         request: TopicChatRequest,
-    ) -> std::result::Result<EmptyRequest, Error> {
+    ) -> std::result::Result<(), Error> {
         let town = request.town.clone();
         let topic = request.topic.clone();
         let id = request.initial.clone();
         let amount = 10.0;
-        let prompt_lib_file = format!("{}/template/plan/iterative_convo_topic.txt", AI_MATRIX_DIR);
         let add_balance = format!(
             "UPDATE balance SET amount = amount - {} WHERE id = \"{}\"",
             amount, id
         );
-        match MetapowerSqlite3::new().update_table(add_balance.clone()) {
-            Ok(_) => {
-                log!("update {} success", add_balance);
-            }
-            Err(e) => {
-                log!("Error: {}", e);
-            }
-        }
+        MetapowerSqlite3::new().update_table(add_balance.clone())?;
 
-            let select_pro_table = "select sn, id, name from pato";
-            match MetapowerSqlite3::query_db(select_pro_table, vec!["id", "sn", "name"]) {
-                Ok(records) => {
-                    if !records.is_empty() {
-                        let mut chat_messages: Vec<String> = vec![];
-                        let mut last_talked_person: String = String::default();
-                        for record in records {
-                            let mut curr_input: Vec<String> = vec![];
-                            let name = record.get("name").unwrap().to_string();
-                            log!("topic talk to {}", name);
-                            // let id = record.get("id").unwrap().to_string();
-                            let sn = record
-                                .get("sn")
-                                .unwrap()
-                                .to_string()
-                                .parse::<i64>()
-                                .unwrap_or(-1);
-                            if sn > 0 {
-                                if last_talked_person.is_empty() {
-                                    last_talked_person = name.clone();
-                                }
-                                let battery_address = format!(
-                                    "{}:{}",
-                                    BATTERY_GRPC_REST_SERVER,
-                                    sn + BATTERY_GRPC_SERVER_PORT_START
-                                );
-                                curr_input.push(town.clone()); //0
-                                curr_input.push(town.clone()); //1
-                                curr_input.push(chat_messages.join("\n")); //2
-                                curr_input.push(topic.clone()); //3
-                                curr_input.push(last_talked_person.clone()); //4
-                                curr_input.push(
-                                    chat_messages.last().unwrap_or(&"".to_owned()).to_owned(),
-                                ); //5
-                                curr_input.push(name.clone()); //6
-                                curr_input.push(name.clone()); //7
-                                curr_input.push(name.to_owned()); //8
+        let select_pro_table = "select sn, id, name from pato";
+        match MetapowerSqlite3::query_db(select_pro_table, vec!["id", "sn", "name"]) {
+            Ok(records) => {
+                if !records.is_empty() {
+                    let mut chat_messages: Vec<String> = vec![];
+                    let mut last_talked_person: String = String::default();
+                    for record in records {
+                        let mut curr_input: Vec<String> = vec![];
+                        let name = record.get("name").unwrap().to_string();
+                        log!("topic talk to {}", name);
+                        // let id = record.get("id").unwrap().to_string();
+                        let sn = record
+                            .get("sn")
+                            .unwrap()
+                            .to_string()
+                            .parse::<i64>()
+                            .unwrap_or(-1);
+                        if sn > 0 {
+                            if last_talked_person.is_empty() {
                                 last_talked_person = name.clone();
+                            }
+                            let battery_address = format!(
+                                "{}:{}",
+                                BATTERY_GRPC_REST_SERVER,
+                                sn + BATTERY_GRPC_SERVER_PORT_START
+                            );
+                            curr_input.push(town.clone()); //0
+                            curr_input.push(town.clone()); //1
+                            curr_input.push(chat_messages.join("\n")); //2
+                            curr_input.push(topic.clone()); //3
+                            curr_input.push(last_talked_person.clone()); //4
+                            curr_input
+                                .push(chat_messages.last().unwrap_or(&"".to_owned()).to_owned()); //5
+                            curr_input.push(name.clone()); //6
+                            curr_input.push(name.clone()); //7
+                            curr_input.push(name.to_owned()); //8
+                            last_talked_person = name.clone();
 
-                                let prompt = generate_prompt(curr_input, "".to_string());
-                                let req = serde_json::to_string(&MessageRequest {
-                                    message: String::default(),
-                                    subject: String::default(),
-                                    prompt,
-                                }).unwrap_or_default();
-                                match send_http_post_request(battery_address.to_string(), battery_address.to_string(), "agent_smith".to_string(), req).await{
-                                    Ok(resp) => {
-                                        chat_messages.push(name + ":" + &resp.clone());
-                                    }
-                                    Err(e) => {
-                                        println!("topic talk error: {}", e);
-                                    }
+                            let prompt = generate_prompt(curr_input, "".to_string());
+                            let req = serde_json::to_string(&MessageRequest {
+                                message: String::default(),
+                                subject: String::default(),
+                                prompt,
+                            })
+                            .unwrap_or_default();
+                            match send_http_post_request(
+                                battery_address.to_string(),
+                                battery_address.to_string(),
+                                "agent_smith".to_string(),
+                                req,
+                            )
+                            .await
+                            {
+                                Ok(resp) => {
+                                    chat_messages.push(name + ":" + &resp.clone());
+                                }
+                                Err(e) => {
+                                    println!("topic talk error: {}", e);
                                 }
                             }
                         }
-                        let mut hasher = sha1::Sha1::new();
-                        hasher.update(&topic);
-                        hasher.update(&town);
-                        let saved_file_name = format!("{:x}", hasher.finalize());
-                        TOPICS.with(|v|{
-                            v.borrow_mut().insert(saved_file_name, serde_json::to_string(&chat_messages).unwrap_or_default())
-                        });
                     }
-                }
-                Err(e) => {
-                    println!("Error: {}", e);
+                    let mut hasher = sha1::Sha1::new();
+                    hasher.update(&topic);
+                    hasher.update(&town);
                 }
             }
+            Err(e) => Err(e)?,
+        }
 
-        Ok(EmptyRequest {})
+        Ok(())
     }
 
     pub fn request_topic_chat_history(
@@ -647,12 +507,6 @@ impl MetaPowerMatrixAgentService {
         let mut hasher = sha1::Sha1::new();
         hasher.update(&topic);
         hasher.update(&town);
-        let saved_file_name = format!("{:x}", hasher.finalize());
-
-        TOPICS.with(|v| {
-            let his = v.borrow().get(&saved_file_name).unwrap_or_default();
-            chat_messages = serde_json::from_str(&his).unwrap_or_default();
-        });
 
         Ok(TopicChatHisResponse {
             history: chat_messages,
@@ -677,10 +531,22 @@ impl MetaPowerMatrixAgentService {
         let title = request.title.clone();
         let town = request.town.clone();
         let description = request.description.clone();
-        let (bytes,): (Vec<u8>,) = ic_cdk::api::call::call(Principal::management_canister(), "raw_rand", ()).await.unwrap_or_default();
-        let room_id = bytes.iter().map(|b| format!("{:02x}", b)).collect::<String>();
-        let (bytes,): (Vec<u8>,) = ic_cdk::api::call::call(Principal::management_canister(), "raw_rand", ()).await.unwrap_or_default();
-        let image_file_name = bytes.iter().map(|b| format!("{:02x}", b)).collect::<String>();;
+        let (bytes,): (Vec<u8>,) =
+            ic_cdk::api::call::call(Principal::management_canister(), "raw_rand", ())
+                .await
+                .unwrap_or_default();
+        let room_id = bytes
+            .iter()
+            .map(|b| format!("{:02x}", b))
+            .collect::<String>();
+        let (bytes,): (Vec<u8>,) =
+            ic_cdk::api::call::call(Principal::management_canister(), "raw_rand", ())
+                .await
+                .unwrap_or_default();
+        let image_file_name = bytes
+            .iter()
+            .map(|b| format!("{:02x}", b))
+            .collect::<String>();
         let mut xfiles_link = String::default();
 
         let prompt = format!(
@@ -688,17 +554,20 @@ impl MetaPowerMatrixAgentService {
             description
         );
         let image_request = serde_json::to_string(&ImageGenRequest { prompt })?;
-        match send_http_post_request(LLMCHAT_GRPC_REST_SERVER.to_string(), LLMCHAT_GRPC_REST_SERVER.to_string(), "agent_smith".to_string(), image_request).await{
+        match send_http_post_request(
+            LLMCHAT_GRPC_REST_SERVER.to_string(),
+            LLMCHAT_GRPC_REST_SERVER.to_string(),
+            "agent_smith".to_string(),
+            image_request,
+        )
+        .await
+        {
             Ok(answer) => {
                 let image_url = answer;
                 let saved_local_file = format!("{}/game/{}", XFILES_LOCAL_DIR, image_file_name);
                 xfiles_link = format!("{}/game/{}", XFILES_SERVER, image_file_name);
                 match download_image(&image_url, &saved_local_file).await {
-                    Ok(_) => {
-                        let game_room_path =
-                            format!("{}/{}/db/game_room/{}", AI_PATO_DIR, owner, room_id);
-                        ROOM_SCENES.with(|v| v.borrow_mut().append(&xfiles_link));
-                    }
+                    Ok(_) => {                    }
                     Err(e) => {
                         log!("download image error: {}", e);
                     }
@@ -731,8 +600,6 @@ impl MetaPowerMatrixAgentService {
                 println!("Error: {}", e);
             }
         }
-
-        ROOM_NAMES.with(|v| v.borrow_mut().append(&title));
 
         Ok(RoomCreateResponse {
             room_id,
@@ -892,7 +759,7 @@ impl MetaPowerMatrixAgentService {
     pub fn request_kol_registration(
         &self,
         request: KolRegistrationRequest,
-    ) -> std::result::Result<EmptyRequest, Error> {
+    ) -> std::result::Result<(), Error> {
         let pro_table = "CREATE TABLE IF NOT EXISTS KOL (
             sn INTEGER PRIMARY KEY AUTOINCREMENT,
             registered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -900,21 +767,13 @@ impl MetaPowerMatrixAgentService {
             follower TEXT NOT NULL
         )";
 
-        if let Err(e) = MetapowerSqlite3::new().create_table(pro_table.to_owned()) {
-            println!("Error: {}", e);
-        }
+        MetapowerSqlite3::new().create_table(pro_table.to_owned())?;
 
         let id = request.id.clone();
         let add_kol = "INSERT INTO KOL (id, follower) VALUES (?1, ?2)";
-        if let Err(e) =
-            MetapowerSqlite3::new().insert_record(add_kol, &[&id, &OFFICIAL_PATO.to_string()])
-        {
-            println!("Error: {}", e);
-        }
+        MetapowerSqlite3::new().insert_record(add_kol, &[&id, &OFFICIAL_PATO.to_string()])?;
 
-        let response = EmptyRequest {};
-
-        Ok(response)
+        Ok(())
     }
 
     pub fn request_kol_list(
@@ -946,7 +805,7 @@ impl MetaPowerMatrixAgentService {
         }
         // log!("relations: {:?}", relations);
         for (key, value) in relations.iter() {
-            let name = match self.get_pato_name(key.to_string()){
+            let name = match self.get_pato_name(key.to_string()) {
                 Some(name) => name.to_string(),
                 None => "".to_string(),
             };
@@ -964,14 +823,12 @@ impl MetaPowerMatrixAgentService {
     pub fn request_add_kol_follower(
         &self,
         request: FollowKolRequest,
-    ) -> std::result::Result<EmptyRequest, Error> {
+    ) -> std::result::Result<(), Error> {
         let follower = request.follower.clone();
         let id = request.id.clone();
         let add_kol = "INSERT INTO KOL (id, follower) VALUES (?1, ?2)";
-        if let Err(e) = MetapowerSqlite3::new().insert_record(add_kol, &[&id, &follower]) {
-            println!("Error: {}", e);
-        }
+        MetapowerSqlite3::new().insert_record(add_kol, &[&id, &follower])?;
 
-        Ok(EmptyRequest {})
+        Ok(())
     }
 }

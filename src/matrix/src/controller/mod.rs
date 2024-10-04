@@ -21,20 +21,14 @@ use crate::{
 use ic_cdk::api::call::call;
 use metapower_framework::dao::sqlite::MetapowerSqlite3;
 use metapower_framework::{
-    log, AirdropRequest, AllPatosResponse, EmptyRequest, NameResponse, SimpleResponse
+    log, AllPatosResponse, EmptyRequest, NameResponse, SimpleResponse
 };
 
 type RM = RestrictedMemory<DefaultMemoryImpl>;
 type VM = VirtualMemory<RM>;
 
 const KNOWLEDGES_MEM_ID: MemoryId = MemoryId::new(0);
-const LOG_NAME_INDX_MEM_ID: MemoryId = MemoryId::new(1);
-const LOG_NAME_DATA_MEM_ID: MemoryId = MemoryId::new(2);
 const SUMMARY_MEM_ID: MemoryId = MemoryId::new(3);
-const LOG_SESSION_INDX_MEM_ID: MemoryId = MemoryId::new(4);
-const LOG_SESSION_DATA_MEM_ID: MemoryId = MemoryId::new(5);
-const LOG_TOPICS_INDX_MEM_ID: MemoryId = MemoryId::new(6);
-const LOG_TOPICS_DATA_MEM_ID: MemoryId = MemoryId::new(7);
 const METADATA_PAGES: u64 = 16;
 
 #[derive(Default)]
@@ -68,20 +62,6 @@ thread_local! {
         MM::init(RM::new(DefaultMemoryImpl::default(), METADATA_PAGES..u64::MAX))
         );
 
-    static SESSIONS: RefCell<StableLog<String, VM, VM>> =
-        MEMORY_MANAGER.with(|mm| {
-          RefCell::new(StableLog::init(
-            mm.borrow().get(LOG_SESSION_INDX_MEM_ID),
-            mm.borrow().get(LOG_SESSION_DATA_MEM_ID),
-          ).expect("failed to initialize the session record"))
-        });
-    static TOPICS: RefCell<StableLog<String, VM, VM>> =
-        MEMORY_MANAGER.with(|mm| {
-          RefCell::new(StableLog::init(
-            mm.borrow().get(LOG_TOPICS_INDX_MEM_ID),
-            mm.borrow().get(LOG_TOPICS_DATA_MEM_ID),
-          ).expect("failed to initialize the session record"))
-        });
     static KNOWLEDGES: RefCell<StableBTreeMap<String, String, VM>> =
         MEMORY_MANAGER.with(|mm| {
           RefCell::new(StableBTreeMap::init(mm.borrow().get(KNOWLEDGES_MEM_ID)))
@@ -282,39 +262,6 @@ impl MetaPowerMatrixControllerService {
         }
 
         let response = SharedKnowledgesResponse { books: knowledges };
-        Ok(response)
-    }
-
-    pub async fn request_hot_topics(
-        &self,
-        _request: EmptyRequest,
-    ) -> std::result::Result<HotTopicResponse, String> {
-        let callee = CALLEE.with(|callee| callee.borrow().as_ref().unwrap().clone());
-
-        let (patos_resp,): (AllPatosResponse,) =
-            match call(callee, "request_all_patos", ()).await {
-                Ok(response) => response,
-                Err((code, msg)) => {
-                    return Err(format!("request_all_patos失败: {}: {}", code as u8, msg))
-                }
-            };
-
-        let mut all_events = vec![];
-        TOPICS.with(|v|{
-            for event in v.borrow().iter(){
-                all_events.push(event);
-            }
-        });
-        
-        let mut set = HashSet::new();
-        let mut result = Vec::new();
-        for item in all_events {
-            if set.insert(item.clone()) {
-                result.push(item.clone());
-            }
-        }
-
-        let response = HotTopicResponse { topics: result };
         Ok(response)
     }
 }
