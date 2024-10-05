@@ -23,7 +23,7 @@ type RM = RestrictedMemory<DefaultMemoryImpl>;
 type VM = VirtualMemory<RM>;
 
 const BATTERY_MEM_ID: MemoryId = MemoryId::new(0);
-const METADATA_PAGES: u64 = 64;
+const METADATA_PAGES: u64 = 256;
 
 thread_local! {
     static AGENT_NAME: RefCell<String> = RefCell::new("".to_string());
