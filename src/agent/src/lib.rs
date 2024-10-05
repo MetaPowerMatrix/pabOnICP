@@ -28,7 +28,7 @@ const METADATA_PAGES: u64 = 64;
 thread_local! {
     static AGENT_NAME: RefCell<String> = RefCell::new("".to_string());
     static MEMORY_MANAGER: RefCell<MM<RM>> = RefCell::new(
-        MM::init(RM::new(DefaultMemoryImpl::default(), 1..METADATA_PAGES))
+        MM::init(RM::new(DefaultMemoryImpl::default(), 16..METADATA_PAGES))
     );
     static BATTERY_CALLEE: RefCell<StableBTreeMap<String, String, VM>> =
         MEMORY_MANAGER.with(|mm| {
