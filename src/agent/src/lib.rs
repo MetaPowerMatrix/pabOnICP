@@ -6,12 +6,9 @@ use ic_cdk::{api::caller, id};
 use ic_stable_structures::memory_manager::{MemoryId, MemoryManager as MM, VirtualMemory};
 use ic_stable_structures::{DefaultMemoryImpl, RestrictedMemory, StableBTreeMap, StableLog};
 use metapower_framework::{
-    get_now_date_str, get_now_secs, AirdropRequest, ChangeBalanceRequest, EmptyRequest,
-    FollowKolRequest, InjectHumanVoiceRequest, KolListResponse, KolRegistrationRequest,
-    NameRequest, NameResponse, PatoInfo, PatoInfoResponse, PopulationRegistrationRequest,
-    RoomCreateRequest, RoomCreateResponse, RoomListResponse, SimpleRequest, SimpleResponse,
-    TokenRequest, TokenResponse, TopicChatHisResponse, TopicChatRequest,
+    get_now_date_str, get_now_secs, AirdropRequest, ChangeBalanceRequest, EmptyRequest, FollowKolRequest, InjectHumanVoiceRequest, KolListResponse, KolRegistrationRequest, NameRequest, NameResponse, PatoInfo, PatoInfoResponse, PopulationRegistrationRequest, RoomCreateRequest, RoomCreateResponse, RoomListResponse, SimpleRequest, SimpleResponse, TokenRequest, TokenResponse, TopicChatHisResponse, TopicChatRequest
 };
+use metapower_framework::prompt::PREDEFINED_TAGS;
 use smith::MetaPowerMatrixAgentService;
 use std::cell::RefCell;
 use std::fmt::Write;
@@ -34,6 +31,7 @@ thread_local! {
         MEMORY_MANAGER.with(|mm| {
             RefCell::new(StableBTreeMap::init(mm.borrow().get(BATTERY_MEM_ID)))
         });
+    static USER_DEFINED_TAGS: RefCell<String> =  RefCell::new("".to_string());
 }
 
 #[ic_cdk::init]
@@ -228,6 +226,30 @@ fn request_all_patos() -> Vec<PatoInfo> {
     }
 }
 
+#[ic_cdk::query]
+fn request_predefined_tags() -> String{
+    _must_initialized();
+
+    unsafe {
+        let tags = USER_DEFINED_TAGS.with(|v| v.borrow().clone());
+        if tags.is_empty() {
+            PREDEFINED_TAGS.to_string()
+        }else{
+            tags
+        }
+    }
+}
+
+#[ic_cdk::update]
+fn set_predefined_tags(tags: String) {
+    _must_initialized();
+
+    USER_DEFINED_TAGS.with(move |v|{
+        let data = tags;
+        *v.borrow_mut() = data;
+    });
+}
+
 #[ic_cdk::update]
 fn request_plus_balance(id: String, amount: f32) -> Result<SimpleResponse, String> {
     _must_initialized();
@@ -376,6 +398,18 @@ async fn request_pato_by_name(name: String) -> Result<NameResponse, String> {
 }
 
 #[ic_cdk::query]
+async fn request_pato_name(id: String) -> String {
+    _must_initialized();
+
+    match MetaPowerMatrixAgentService::new()
+        .get_pato_name(id)
+    {
+        Some(response) => response,
+        None => ic_cdk::trap("pato name not registered"),
+    }
+}
+
+#[ic_cdk::query]
 async fn request_pato_by_ids(ids: Vec<String>) -> Result<NameResponse, String> {
     _must_initialized();
     let request = NameRequest { id: ids };
@@ -393,7 +427,7 @@ fn request_kol_registration(id: String) {
     _must_initialized();
     let request = KolRegistrationRequest {
         id,
-        key: "key".to_string(),
+        key: "".to_string(),
     };
 
     if let Err(e) = MetaPowerMatrixAgentService::new().request_kol_registration(request) {

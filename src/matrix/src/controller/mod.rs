@@ -1,12 +1,11 @@
 use std::borrow::Cow;
 use std::cell::RefCell;
-use std::collections::HashSet;
 use std::vec;
 use std::fmt::Write;
 use anyhow::{anyhow, Error};
 use candid::Principal;
 use ic_stable_structures::storable::Bound;
-use ic_stable_structures::{StableCell, DefaultMemoryImpl, RestrictedMemory, StableBTreeMap, StableLog, Storable};
+use ic_stable_structures::{DefaultMemoryImpl, RestrictedMemory, StableBTreeMap, Storable};
 use ic_stable_structures::memory_manager::{
     MemoryId,
     MemoryManager as MM,
@@ -14,8 +13,7 @@ use ic_stable_structures::memory_manager::{
   };
   
 use crate::{
-    CreateRequest, CreateResonse, EmptyResponse, HotAi, HotAiResponse,
-    HotTopicResponse, Knowledge, LoginRequest, SharedKnowledgesResponse, 
+    CreateRequest, CreateResonse, EmptyResponse, HotAi, HotAiResponse, Knowledge, LoginRequest, SharedKnowledgesResponse, 
     CALLEE,
 };
 use ic_cdk::api::call::call;
@@ -28,8 +26,8 @@ type RM = RestrictedMemory<DefaultMemoryImpl>;
 type VM = VirtualMemory<RM>;
 
 const KNOWLEDGES_MEM_ID: MemoryId = MemoryId::new(0);
-const SUMMARY_MEM_ID: MemoryId = MemoryId::new(3);
-const METADATA_PAGES: u64 = 16;
+const SUMMARY_MEM_ID: MemoryId = MemoryId::new(1);
+const METADATA_PAGES: u64 = 512;
 
 #[derive(Default)]
 struct Cbor<T>(pub T) where T: serde::Serialize + serde::de::DeserializeOwned;
@@ -59,7 +57,7 @@ impl<T> Storable for Cbor<T> where T: serde::Serialize + serde::de::DeserializeO
 
 thread_local! {
     static MEMORY_MANAGER: RefCell<MM<RM>> = RefCell::new(
-        MM::init(RM::new(DefaultMemoryImpl::default(), METADATA_PAGES..u64::MAX))
+        MM::init(RM::new(DefaultMemoryImpl::default(), 16..METADATA_PAGES))
         );
 
     static KNOWLEDGES: RefCell<StableBTreeMap<String, String, VM>> =

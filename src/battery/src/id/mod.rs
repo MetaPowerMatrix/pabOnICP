@@ -3,21 +3,21 @@ pub mod identity;
 use anyhow::{anyhow, Error};
 use ic_cdk::call;
 use metapower_framework::dao::crawler::download_image;
-use metapower_framework::AI_PATO_DIR;
+use metapower_framework::dao::http::{BSCSvcClient, LLMSvcClient};
+use metapower_framework::{DataResponse, AI_PATO_DIR};
 use metapower_framework::{
     ensure_directory_exists, get_event_subjects, get_now_secs, log,
     publish_battery_actions, AnswerReply, ArchiveMessageRequest,
     BecomeKolRequest, BestTalkRequest, BetterTalkRequest, CharacterGenRequest,
     CharacterGenResponse, ChatMessage, DocsRequest, DocumentSummaryRequest,
-    DocumentSummaryResponse, EmptyRequest, EventTopic,
-    GameAnswerRequest, GameAnswerResponse, GetMessageRequest, GetMessageResponse, ImageAnswerRequest, ImageChatRequest, ImageChatResponse,
+    DocumentSummaryResponse, EmptyRequest, EventTopic, GetMessageRequest, GetMessageResponse, ImageChatRequest, ImageChatResponse,
     ImageContextRequest, ImageContextResponse, ImageDescriptionRequest, ImageDescriptionResponse,
     ImageGenPromptRequest, ImageGenRequest, ImageGenResponse, ImagePromptRequest, InstructRequest,
     InstructResponse, JoinKolRoomRequest, KnowLedgeInfo,
     KnowLedgesRequest, KnowLedgesResponse, LlmEmptyResponse,
     MessageRequest, NameResponse,
     PatoNameResponse, QueryEmbeddingRequest, QueryEmbeddingResponse, QueryEmbeddingsRequest,
-    QueryEmbeddingsResponse, QuestionRequest, RevealAnswerRequest, RevealAnswerResponse, SessionMessages, ShareKnowLedgesRequest, SnResponse,
+    QueryEmbeddingsResponse, QuestionRequest, SessionMessages, ShareKnowLedgesRequest,
     SomeDocs, SubjectResponse, SubmitTagsRequest, SubmitTagsResponse, SummaryAndEmbeddingRequest,
     SummaryAndEmbeddingResponse, SummarytResponse, SvcImageDescriptionRequest,
     SvcImageDescriptionResponse, TalkResponse, TextToSpeechRequest, TextToSpeechResponse,
@@ -30,13 +30,13 @@ use std::path::PathBuf;
 use std::{fs, io};
 use tempfile::NamedTempFile;
 
-use crate::id::identity::{ask_pato_knowledges, ask_pato_name, get_pato_name};
+use crate::id::identity::{ask_pato_knowledges, ask_pato_name};
 use crate::reverie::generate_prompt;
 use crate::reverie::memory::{
     find_chat_session_dirs, get_kol_messages, get_kol_messages_summary, get_pato_knowledges,
     save_kol_chat_message,
 };
-use crate::{LLMSvcClient, AGENT_CALLEE};
+use crate::{AGENT_CALLEE, BATTERY_AVATAR, BATTERY_CHARACTER, BATTERY_TAGS};
 
 const MAX_SUBJECT_LEN: i32 = 22;
 
@@ -330,7 +330,7 @@ impl MetaPowerMatrixBatteryService {
         let kol_id = request.kol.clone();
 
         let kol_name = ask_pato_name(kol_id.clone()).await.unwrap_or_default();
-        let my_name = get_pato_name(self.id.clone()).unwrap_or_default();
+        let my_name = ask_pato_name(self.id.clone()).await.unwrap_or_default();
         let session_messages: Vec<ChatMessage> =
             get_kol_messages(request.reply_to.clone(), request.kol.clone());
         let raw_messages = session_messages
@@ -668,7 +668,6 @@ impl MetaPowerMatrixBatteryService {
     ) -> std::result::Result<QueryEmbeddingResponse, Error> {
         let db_path = format!("{}/{}/db/knowledge_chromadb", AI_PATO_DIR, self.id.clone());
         let collection_prefix = "sig".to_string();
-        let mut result = String::default();
         let llm_client = LLMSvcClient::default();
         let llmrequest = QueryEmbeddingsRequest {
             collection_name: collection_prefix + &request.collection_name.clone(),
@@ -682,7 +681,7 @@ impl MetaPowerMatrixBatteryService {
                 llmrequest,
             )
             .await?;
-        result = query_resp.result.clone();
+        let result = query_resp.result.clone();
 
         let response = QueryEmbeddingResponse { result };
 
@@ -909,231 +908,34 @@ impl MetaPowerMatrixBatteryService {
         Ok(response)
     }
 
-    pub async fn request_clue_from_image_chat(
-        &self,
-        request: ImageChatRequest,
-    ) -> std::result::Result<ImageChatResponse, Error> {
-        let mut sn: i64 = -1;
-
-        let callee = AGENT_CALLEE.with(|callee| *callee.borrow().as_ref().unwrap());
-        let (sn_resp,): (SnResponse,) =
-            match call(callee, "request_sn", (vec![request.reply_to.clone()],)).await {
-                Ok(response) => response,
-                Err((code, msg)) => return Err(anyhow!("become_kol失败: {}: {}", code as u8, msg)),
-            };
-        let resp = sn_resp.pato_sn_id;
-        if !resp.is_empty() {
-            sn = resp[0].sn.parse::<i64>().unwrap_or(-1);
-        } else {
-            println!("send_pato_instruct: not found this one");
-        }
-
-        if sn >= 0 {
-            let client = LLMSvcClient::default();
-            let req = ImageChatRequest {
-                message: request.message.clone(),
-                reply_to: self.id.clone(),
-                image_url: request.image_url.clone(),
-                room_id: "".to_string(),
-                level: 0,
-            };
-            match client
-                .call_llm_proxy::<ImageChatRequest, ImageChatResponse>(
-                    "request_chat_with_image",
-                    req,
-                )
-                .await
-            {
-                Ok(answer) => {
-                    return Ok(answer);
-                }
-                Err(e) => {
-                    println!("send_pato_instruct error: {:?}", e);
-                }
-            }
-        }
-
-        Ok(ImageChatResponse::default())
-    }
-
-    pub async fn receive_game_answer(
-        &self,
-        request: GameAnswerRequest,
-    ) -> std::result::Result<GameAnswerResponse, Error> {
-        let room_id = request.room_id.clone();
-        let gamer_id = request.id.clone();
-        let answer = request.answer.clone();
-        let gamer_name = request.name.clone();
-        let game_level = request.level;
-
-        let game_room_path = format!("{}/{}/db/game_room/{}", AI_PATO_DIR, self.id, room_id);
-        if let Ok(mut file) = OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(format!("{}/gamer_answer.txt", game_room_path))
-        {
-            writeln!(
-                file,
-                "{}#{}#{}#{}",
-                gamer_id, gamer_name, game_level, answer
-            )?;
-        }
-        let mut buffer = String::new();
-        if let Ok(mut file) = OpenOptions::new()
-            .read(true)
-            .open(format!("{}/answer_{}.txt", game_room_path, game_level))
-        {
-            let _ = file.read_to_string(&mut buffer);
-        }
-
-        let message = format!("notification:{}发送答案", gamer_name);
-        publish_battery_actions(room_id.clone(), message);
-
-        let prompt = format!(
-            r#"请仔细阅读下面的背景说明：
-            上下文-1:
-            以下一个问题的标准答案：
-            {}
-
-            上下文-2:
-            以下是用户{}基于问题所作的回答：
-            {}
-
-            根据上面提供的上下文, 判断用户{}的回答是否和标准答案的表述基本一致, 如果一致请输出yes, 否则请输出no.
-
-            {}:{}
-            AI:
-            "#,
-            buffer, gamer_name, answer, gamer_name, gamer_name, answer
-        );
-
-        let mut winner: Vec<String> = vec![];
-        let client = LLMSvcClient::default();
-        let chat_request = QuestionRequest {
-            question: prompt,
-            subject: String::default(),
-            persona: String::default(),
-        };
-        println!("chat_request: {:?}", chat_request);
-        match client
-            .call_llm_proxy::<QuestionRequest, AnswerReply>("talk", chat_request)
-            .await
-        {
-            Ok(answer) => {
-                log!("check_game_answer: {:?}", answer.answer);
-                if answer.answer.contains("yes") || answer.answer.contains("Yes") {
-                    publish_battery_actions(
-                        room_id.clone(),
-                        format!("notification:{}回答正确", gamer_name),
-                    );
-                    winner.push(gamer_id);
-                }
-            }
-            Err(e) => {
-                log!("check_game_answer AI is something wrong: {}", e);
-            }
-        }
-
-        let response = GameAnswerResponse {
-            correct_gamers: winner,
-        };
-
-        Ok(response)
-    }
-
-    pub async fn request_answer_image(
-        &self,
-        request: ImageAnswerRequest,
-    ) -> std::result::Result<ImageContextResponse, Error> {
-        let mut response = ImageContextResponse {
-            context: String::default(),
-        };
-        let image_url = request.image_url.clone();
-        let input = request.input.clone();
-        let mut prompt = String::new();
-        let room_id = request.room_id.clone();
-        let level = request.level;
-
-        let game_room_path = format!("{}/{}/db/game_room/{}", AI_PATO_DIR, self.id, room_id);
-
-        if let Ok(mut file) = OpenOptions::new()
-            .read(true)
-            .open(format!("{}/scene_{}_prompt.txt", game_room_path, level))
-        {
-            let _ = file.read_to_string(&mut prompt);
-        }
-
-        let client = LLMSvcClient::default();
-        let chat_request = ImagePromptRequest {
-            image_url,
-            prompt,
-            input,
-        };
-        match client
-            .call_llm_proxy::<ImagePromptRequest, ImageDescriptionResponse>(
-                "request_image_description_with_prompt",
-                chat_request,
-            )
-            .await
-        {
-            Ok(answer) => {
-                response.context = answer.description.clone();
-                if let Ok(mut file) = OpenOptions::new()
-                    .create(true)
-                    .write(true)
-                    .truncate(true)
-                    .open(format!("{}/answer_{}.txt", game_room_path, level))
-                {
-                    writeln!(file, "{}", response.context)?;
-                }
-            }
-            Err(e) => {
-                log!("request_answer_image AI is something wrong: {}", e);
-            }
-        }
-        Ok(response)
-    }
-
-    pub fn request_reveal_answer(
-        &self,
-        request: RevealAnswerRequest,
-    ) -> std::result::Result<RevealAnswerResponse, Error> {
-        let game_room_path = format!(
-            "{}/{}/db/game_room/{}",
-            AI_PATO_DIR,
-            self.id,
-            request.room_id.clone()
-        );
-        let mut buffer = String::new();
-        if let Ok(mut file) = OpenOptions::new()
-            .read(true)
-            .open(format!("{}/answer_{}.txt", game_room_path, request.level))
-        {
-            let _ = file.read_to_string(&mut buffer);
-        }
-
-        let response = RevealAnswerResponse { answer: buffer };
-
-        Ok(response)
-    }
-
     pub async fn become_kol(
         &self,
         request: BecomeKolRequest,
-    ) -> std::result::Result<EmptyRequest, Error> {
+    ) -> std::result::Result<(), Error> {
+        match BSCSvcClient::default().bsc_proxy_get::<DataResponse>(&format!("query/staking/{}", request.key)).await{
+            Ok(resp) => {
+                if resp.code != "200" && (resp.content.parse::<u64>().unwrap_or(0) < 10000) {
+                    return Err(anyhow!("{}: {}", resp.code, resp.content));
+                }
+            }
+            Err(e) => {
+                return Err(e);
+            }
+        }
+
         let callee = AGENT_CALLEE.with(|callee| *callee.borrow().as_ref().unwrap());
-        let (reg_resp,): (EmptyRequest,) = match call(
+        let (_,): ((),) = match call(
             callee,
             "request_kol_registration",
-            (self.id.clone(), request.key.clone()),
+            (self.id.clone(),),
         )
         .await
         {
             Ok(response) => response,
-            Err((code, msg)) => return Err(anyhow!("become_kol失败: {}: {}", code as u8, msg)),
+            Err((code, msg)) => return Err(anyhow!("{}: {}", code as u8, msg)),
         };
 
-        Ok(reg_resp)
+        Ok(())
     }
 
     pub async fn request_join_kol_room(
@@ -1271,22 +1073,15 @@ impl MetaPowerMatrixBatteryService {
     ) -> std::result::Result<SubmitTagsResponse, Error> {
         let mut resp = SubmitTagsResponse::default();
 
-        if let Ok(mut file) = OpenOptions::new()
-            .create(true)
-            .write(true)
-            .truncate(true)
-            .open(format!("{}/{}/db/tags.json", AI_PATO_DIR, self.id))
-        {
-            writeln!(
-                file,
-                "{}",
-                serde_json::to_string(&request.tags).unwrap_or_default()
-            )?;
-        }
+        BATTERY_TAGS.with(|tags| {
+            let mut tags = tags.borrow_mut();
+            tags.insert(request.id.clone(), request.tags.join(","));
+        });
+
         let client = LLMSvcClient::default();
         let tag_request = CharacterGenRequest {
             tags: request.tags.clone(),
-            name: get_pato_name(self.id.clone()).unwrap_or("nobody".to_string()),
+            name: ask_pato_name(self.id.clone()).await.unwrap_or_default(),
             gender: "Unknown".to_string(),
         };
         match client
@@ -1297,14 +1092,14 @@ impl MetaPowerMatrixBatteryService {
             .await
         {
             Ok(answer) => {
-                if let Ok(mut file) = OpenOptions::new()
-                    .create(true)
-                    .write(true)
-                    .truncate(true)
-                    .open(format!("{}/{}/db/character.txt", AI_PATO_DIR, self.id))
-                {
-                    writeln!(file, "{}", answer.iss)?;
-                }
+                let id = request.id.clone();
+                let iss = answer.iss.clone();
+
+                BATTERY_CHARACTER.with(|character| {
+                    let mut character = character.borrow_mut();
+                    character.insert(id.clone(), iss);
+                });
+
                 let image_request = ImageGenRequest {
                     prompt: answer.iss.clone(),
                 };
@@ -1318,30 +1113,25 @@ impl MetaPowerMatrixBatteryService {
                 {
                     Ok(answer) => {
                         resp.avatar = answer.image_url.clone();
-                        let _ = ensure_directory_exists(&format!(
-                            "{}/avatar/{}",
-                            XFILES_LOCAL_DIR, self.id
-                        ));
-                        let saved_local_file =
-                            format!("{}/avatar/{}/avatar.png", XFILES_LOCAL_DIR, self.id);
-                        let xfiles_link =
-                            format!("{}/avatar/{}/avatar.png", XFILES_SERVER, self.id);
-                        match download_image(&resp.avatar, &saved_local_file).await {
-                            Ok(_) => {
-                                resp.avatar = xfiles_link;
+                        match download_image(id.clone(), &resp.avatar).await {
+                            Ok(xfiles_link) => {
+                                BATTERY_AVATAR.with(|avatar| {
+                                    let mut avatar = avatar.borrow_mut();
+                                    avatar.insert(id, xfiles_link);
+                                });
                             }
                             Err(e) => {
-                                log!("download avatar error: {}", e);
+                                return Err(e);
                             }
                         }
                     }
                     Err(e) => {
-                        log!("image_request AI is something wrong: {}", e);
+                        return Err(e);
                     }
                 }
             }
             Err(e) => {
-                log!("gen_character_with_prompt AI is something wrong: {}", e);
+                return Err(e);
             }
         }
 

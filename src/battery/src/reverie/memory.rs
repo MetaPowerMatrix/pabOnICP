@@ -1,4 +1,5 @@
 use ic_cdk::call;
+use metapower_framework::dao::http::LLMSvcClient;
 use metapower_framework::{ensure_directory_exists, get_now_date_str, read_and_writeback_json_file, ChatMessage, ProfessionalsResponse, SomeDocs, SummarytResponse, AGENT_GRPC_REST_SERVER, LLMCHAT_GRPC_REST_SERVER};
 use tempfile::NamedTempFile;
 use std::path::{Path, PathBuf};
@@ -6,7 +7,7 @@ use std::{fs::OpenOptions, io::Write};
 use std::fs::{self, File};
 use metapower_framework::{log, AI_PATO_DIR};
 
-use crate::{LLMSvcClient, AGENT_CALLEE};
+use crate::AGENT_CALLEE;
 
 pub fn save_kol_chat_message(initial: String, kol: String, chat_messages: &mut Vec<ChatMessage>, append: bool) 
 {

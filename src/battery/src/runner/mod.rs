@@ -2,6 +2,7 @@
 
 use candid::Principal;
 use ic_cdk::call;
+use metapower_framework::dao::http::LLMSvcClient;
 use metapower_framework::{AnswerReply, MessageRequest, SnResponse};
 use metapower_framework::{
     dao::personality::Persona, ensure_directory_exists, get_event_subjects, get_now_date_str, get_now_secs, log, publish_battery_actions, read_and_writeback_json_file, ActionInfo, BetterTalkRequest, ChatMessage, EmptyRequest, KnowLedgeInfo, PatoLocation, QuestionRequest, AGENT_GRPC_REST_SERVER, AI_MATRIX_DIR, AI_PATO_DIR, BATTERY_GRPC_REST_SERVER, BATTERY_GRPC_SERVER_PORT_START, HAVEAREST, LLMCHAT_GRPC_REST_SERVER, MATRIX_GRPC_REST_SERVER, SNAP, TICK, XFILES_SERVER
@@ -15,9 +16,9 @@ use std::{
     io::{self},
 };
 
-use crate::{LLMSvcClient, AGENT_CALLEE};
+use crate::AGENT_CALLEE;
 use crate::{
-    id::identity::{ask_pato_knowledges, ask_pato_name, get_pato_name},
+    id::identity::{ask_pato_knowledges, ask_pato_name},
     reverie::{
         generate_prompt,
         memory::{
@@ -495,7 +496,7 @@ impl BatteryRunner {
         let mut curr_input: Vec<String> = vec![];
         let mut reply = String::default();
         let kol_name = ask_pato_name(kol_id.clone()).await.unwrap_or_default();
-        let my_name = get_pato_name(follower_id.clone()).unwrap_or_default();
+        let my_name = ask_pato_name(follower_id.clone()).await.unwrap_or_default();
         let session_messages: Vec<ChatMessage> =
             get_kol_messages(follower_id.clone(), kol_id.clone());
         let raw_messages = session_messages

@@ -2,10 +2,15 @@ use ic_cdk::api::management_canister::http_request::{
     http_request, CanisterHttpRequestArgument, HttpHeader, HttpMethod, HttpResponse, TransformArgs,
     TransformContext,
 };
-use serde::{Serialize, Deserialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::{self};
+use anyhow::{anyhow, Error};
+
+use crate::{AnswerReply, BestTalkRequest, SomeDocs};
 
 const HTTP_CYCLE_COST: u128 = 49140000;
+const BSC_PROXY_HOST: &str = "icp.metapowermatrix.ai";
+const LLM_PROXY_HOST: &str = "llm.metapowermatrix.ai";
 
 // This struct is legacy code and is not really used in the code.
 #[derive(Serialize, Deserialize)]
@@ -151,4 +156,111 @@ pub fn transform(raw: TransformArgs) -> HttpResponse {
         ic_cdk::api::print(format!("Received an error from coinbase: err = {:?}", raw));
     }
     res
+}
+
+pub struct BSCSvcClient {
+    pub host: String,
+    pub module: String,
+}
+
+impl Default for BSCSvcClient {
+    fn default() -> Self {
+        BSCSvcClient::new(BSC_PROXY_HOST.to_string(), "battery".to_string())
+    }
+}
+
+impl BSCSvcClient {
+    pub fn new(host: String, module: String) -> Self {
+        BSCSvcClient { host, module }
+    }
+    pub async fn bsc_proxy_post<T: serde::Serialize, R: DeserializeOwned>(&self, url: &str, req: T) -> Result<R, Error> {
+        let json_string = serde_json::to_string(&req).unwrap_or_default();
+
+        match send_http_post_request(self.host.clone(), url.to_string(), self.module.clone(), json_string).await {
+            Ok(response) => {
+                match serde_json::from_str::<R>(&response){
+                    Ok(talk_response) => {
+                        Ok(talk_response)
+                    }
+                    Err(e) => {
+                        Err(anyhow!("{} error: {}", url, e))
+                    }                    
+                }
+            }
+            Err(e) => Err(anyhow!("{} error: {}", url, e)),
+        }
+    }
+    pub async fn bsc_proxy_get<R: DeserializeOwned>(&self, url: &str) -> Result<R, Error> {
+        match send_http_get_request(self.host.clone(), url.to_string(), self.module.clone()).await {
+            Ok(response) => {
+                match serde_json::from_str::<R>(&response){
+                    Ok(talk_response) => {
+                        Ok(talk_response)
+                    }
+                    Err(e) => {
+                        Err(anyhow!("{} error: {}", url, e))
+                    }                    
+                }
+            }
+            Err(e) => Err(anyhow!("{} error: {}", url, e)),
+        }
+    }
+}
+pub struct LLMSvcClient {
+    pub host: String,
+    pub module: String,
+}
+
+impl Default for LLMSvcClient {
+    fn default() -> Self {
+        LLMSvcClient::new(LLM_PROXY_HOST.to_string(), "battery".to_string())
+    }
+}
+
+impl LLMSvcClient {
+    pub fn new(host: String, module: String) -> Self {
+        LLMSvcClient { host, module }
+    }
+    pub async fn got_documents_summary(&self, url: &str, req: SomeDocs) -> Result<String, Error> {
+        let json_string = serde_json::to_string(&req).unwrap_or_default();
+
+        match send_http_post_request(self.host.clone(), url.to_string(), self.module.clone(), json_string).await {
+            Ok(response) => Ok(response),
+            Err(e) => Err(anyhow!("got_documents_summary error: {}", e)),
+        }
+    }
+    pub async fn talk_best(&self, url: &str, req: BestTalkRequest) -> Result<AnswerReply, Error> {
+        let json_string = serde_json::to_string(&req).unwrap_or_default();
+
+        match send_http_post_request(self.host.clone(), url.to_string(), self.module.clone(), json_string).await {
+            Ok(response) => {
+                match serde_json::from_str::<AnswerReply>(&response){
+                    Ok(talk_response) => {
+                        Ok(talk_response)
+                    }
+                    Err(e) => {
+                        Err(anyhow!("talk_best error: {}", e))
+                    }                    
+                }
+            }
+            Err(e) => Err(anyhow!("talk_best error: {}", e)),
+        }
+    }
+    pub async fn call_llm_proxy<T: serde::Serialize, R: DeserializeOwned>(&self, url: &str, req: T) -> Result<R, Error> {
+        let json_string = serde_json::to_string(&req).unwrap_or_default();
+
+        match send_http_post_request(self.host.clone(), url.to_string(), self.module.clone(), json_string).await {
+            Ok(response) => {
+                match serde_json::from_str::<R>(&response){
+                    Ok(talk_response) => {
+                        Ok(talk_response)
+                    }
+                    Err(e) => {
+                        Err(anyhow!("{} error: {}", url, e))
+                    }                    
+                }
+            }
+            Err(e) => Err(anyhow!("{} error: {}", url, e)),
+        }
+    }
 }

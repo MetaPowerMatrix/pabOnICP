@@ -382,6 +382,7 @@ pub struct TalkResponse {
 
 #[derive(Deserialize, CandidType, Serialize, Debug)]
 pub struct SubmitTagsRequest {
+    pub id: String,
     pub tags: Vec<String>,
 }
 

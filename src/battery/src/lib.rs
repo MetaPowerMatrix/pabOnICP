@@ -6,77 +6,51 @@ use std::cell::RefCell;
 use anyhow::{anyhow, Error};
 use candid::Principal;
 use ic_cdk::{call, caller};
+use ic_stable_structures::{memory_manager::{MemoryId, MemoryManager, VirtualMemory}, StableBTreeMap, DefaultMemoryImpl, RestrictedMemory};
 use id::MetaPowerMatrixBatteryService;
-use metapower_framework::{dao::http::send_http_post_request, log, AnswerReply, BestTalkRequest, MessageRequest, SomeDocs};
-use serde::de::DeserializeOwned;
+use metapower_framework::{dao::http::{send_http_get_request, send_http_post_request}, log, AnswerReply, BecomeKolRequest, BestTalkRequest, MessageRequest, SomeDocs};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
-const LLM_PROXY_HOST: &str = "icp.metapowermatrix.ai";
 
-struct LLMSvcClient {
-    pub host: String,
-    pub module: String,
-}
-
-impl Default for LLMSvcClient {
-    fn default() -> Self {
-        LLMSvcClient::new(LLM_PROXY_HOST.to_string(), "battery".to_string())
-    }
-}
-
-impl LLMSvcClient {
-    pub fn new(host: String, module: String) -> Self {
-        LLMSvcClient { host, module }
-    }
-    pub async fn got_documents_summary(&self, url: &str, req: SomeDocs) -> Result<String, Error> {
-        let json_string = serde_json::to_string(&req).unwrap_or_default();
-
-        match send_http_post_request(self.host.clone(), url.to_string(), self.module.clone(), json_string).await {
-            Ok(response) => Ok(response),
-            Err(e) => Err(anyhow!("got_documents_summary error: {}", e)),
-        }
-    }
-    pub async fn talk_best(&self, url: &str, req: BestTalkRequest) -> Result<AnswerReply, Error> {
-        let json_string = serde_json::to_string(&req).unwrap_or_default();
-
-        match send_http_post_request(self.host.clone(), url.to_string(), self.module.clone(), json_string).await {
-            Ok(response) => {
-                match serde_json::from_str::<AnswerReply>(&response){
-                    Ok(talk_response) => {
-                        Ok(talk_response)
-                    }
-                    Err(e) => {
-                        Err(anyhow!("talk_best error: {}", e))
-                    }                    
-                }
-            }
-            Err(e) => Err(anyhow!("talk_best error: {}", e)),
-        }
-    }
-    pub async fn call_llm_proxy<T: serde::Serialize, R: DeserializeOwned>(&self, url: &str, req: T) -> Result<R, Error> {
-        let json_string = serde_json::to_string(&req).unwrap_or_default();
-
-        match send_http_post_request(self.host.clone(), url.to_string(), self.module.clone(), json_string).await {
-            Ok(response) => {
-                match serde_json::from_str::<R>(&response){
-                    Ok(talk_response) => {
-                        Ok(talk_response)
-                    }
-                    Err(e) => {
-                        Err(anyhow!("{} error: {}", url, e))
-                    }                    
-                }
-            }
-            Err(e) => Err(anyhow!("{} error: {}", url, e)),
-        }
-    }
+#[derive(Debug, Deserialize, Serialize)]
+pub struct DataResponse {
+    pub content: String,
+    pub code: String,
 }
 
 static mut INITIALIZED: bool = false;
 static mut OWNER: Principal = Principal::anonymous();
 
+type RM = RestrictedMemory<DefaultMemoryImpl>;
+type VM = VirtualMemory<RM>;
+
+const BATTERY_TAGS_MEM_ID: MemoryId = MemoryId::new(0);
+const BATTERY_AVATAR_MEM_ID: MemoryId = MemoryId::new(1);
+const BATTERY_CHARACTER_MEM_ID: MemoryId = MemoryId::new(2);
+const METADATA_PAGES: u64 = 256;
+
 thread_local! {
     static MATRIX_CALLEE: RefCell<Option<Principal>> = const { RefCell::new(None) };
     static AGENT_CALLEE: RefCell<Option<Principal>> = const { RefCell::new(None) };
+
+    static MEMORY_MANAGER: RefCell<MemoryManager<RM>> = RefCell::new(
+        MemoryManager::init(RM::new(DefaultMemoryImpl::default(), 16..METADATA_PAGES))
+    );
+
+    static BATTERY_TAGS: RefCell<StableBTreeMap<String, String, VM>> =
+        MEMORY_MANAGER.with(|mm| {
+            RefCell::new(StableBTreeMap::init(mm.borrow().get(BATTERY_TAGS_MEM_ID)))
+        });
+        
+    static BATTERY_AVATAR: RefCell<StableBTreeMap<String, String, VM>> =
+        MEMORY_MANAGER.with(|mm| {
+            RefCell::new(StableBTreeMap::init(mm.borrow().get(BATTERY_AVATAR_MEM_ID)))
+        });
+
+    static BATTERY_CHARACTER: RefCell<StableBTreeMap<String, String, VM>> =
+        MEMORY_MANAGER.with(|mm| {
+            RefCell::new(StableBTreeMap::init(mm.borrow().get(BATTERY_CHARACTER_MEM_ID)))
+        });
 }
 
 fn _only_owner() {
@@ -199,8 +173,18 @@ pub async fn do_battery_service(id: String, token: String, sn: i64, method_name:
 
             let resp = svc.talk(request).await;
         }
-        "talk_best" => {
-            let svc =  MetaPowerMatrixBatteryService::new(id);
+        "become_kol" => {
+            let svc =  MetaPowerMatrixBatteryService::new(id.clone());
+            match serde_json::from_str::<BecomeKolRequest>(&args){
+                Ok(request) => {
+                    if let Err(e) = svc.become_kol(request).await{
+                        ic_cdk::trap(&e.to_string());
+                    }
+                }
+                Err(e) => {
+                    ic_cdk::trap(&format!("become_kol error: {}", e));
+                }
+            }
         }
         "got_documents_summary" => {
             let svc =  MetaPowerMatrixBatteryService::new(id);

@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Error};
 use candid::Principal;
 use metapower_framework::dao::crawler::download_image;
-use metapower_framework::dao::http::send_http_post_request;
+use metapower_framework::dao::http::{send_http_post_request, LLMSvcClient};
 use metapower_framework::{
     dao::sqlite::MetapowerSqlite3, log, read_and_writeback_json_file, ChatMessage, AI_PATO_DIR,
 };
@@ -10,7 +10,7 @@ use metapower_framework::{
     InjectHumanVoiceRequest, KolListResponse, KolRegistrationRequest, KolRelations, MessageRequest,
     NamePros, NameRequest, NameResponse, PatoInfo, PatoInfoResponse, PopulationRegistrationRequest,
     ProfessionalsResponse, RoomCreateRequest, RoomCreateResponse, RoomInfo, RoomListResponse,
-    SimpleRequest, SimpleResponse, SnIdPaire, SnRequest, SnResponse, TokenRequest, TokenResponse,
+    SimpleRequest, SimpleResponse, TokenRequest, TokenResponse,
     TopicChatHisResponse, TopicChatRequest, UserActiveRequest,
 };
 use metapower_framework::{
@@ -61,15 +61,12 @@ impl MetaPowerMatrixAgentService {
         }
     }
 
-    fn get_pato_name(&self, id: String) -> Option<String> {
+    pub fn get_pato_name(&self, id: String) -> Option<String> {
         let mut name = None;
-        BATTERY_CALLEE.with(|v| match v.borrow().get(&id) {
-            Some(json_str) => {
-                if let Ok(info) = serde_json::from_str::<PatoInfo>(&json_str) {
-                    name = Some(info.name);
-                }
+        BATTERY_CALLEE.with(|v| if let Some(json_str) = v.borrow().get(&id) {
+            if let Ok(info) = serde_json::from_str::<PatoInfo>(&json_str) {
+                name = Some(info.name);
             }
-            None => {}
         });
 
         name
@@ -553,53 +550,29 @@ impl MetaPowerMatrixAgentService {
             "draw a picture according to the description below: {}",
             description
         );
-        let image_request = serde_json::to_string(&ImageGenRequest { prompt })?;
-        match send_http_post_request(
-            LLMCHAT_GRPC_REST_SERVER.to_string(),
-            LLMCHAT_GRPC_REST_SERVER.to_string(),
-            "agent_smith".to_string(),
-            image_request,
-        )
-        .await
+        let image_request = ImageGenRequest { prompt };
+        match LLMSvcClient::default().call_llm_proxy::<ImageGenRequest, String>("gen/image", image_request).await
         {
             Ok(answer) => {
-                let image_url = answer;
-                let saved_local_file = format!("{}/game/{}", XFILES_LOCAL_DIR, image_file_name);
-                xfiles_link = format!("{}/game/{}", XFILES_SERVER, image_file_name);
-                match download_image(&image_url, &saved_local_file).await {
+                xfiles_link = answer.clone();
+                match download_image(owner.clone(), &answer).await {
                     Ok(_) => {                    }
                     Err(e) => {
-                        log!("download image error: {}", e);
+                        return Err(e);
                     }
                 }
             }
             Err(e) => {
-                log!("image_request AI is something wrong: {}", e);
+                return Err(e);
             }
         }
 
-        match MetapowerSqlite3::new().create_table(game_room_table.to_owned()) {
-            Ok(_) => {
-                log!("create game room table success");
-            }
-            Err(e) => {
-                println!("Error: {}", e);
-            }
-        }
-
+        MetapowerSqlite3::new().create_table(game_room_table.to_owned())?;
         let new_game_room = "INSERT INTO game_room (owner, room_id, title, description, cover, town) VALUES (?1, ?2, ?3, ?4, ?5, ?6)";
-
-        match MetapowerSqlite3::new().insert_record(
+        MetapowerSqlite3::new().insert_record(
             new_game_room,
             &[&owner, &room_id, &title, &description, &xfiles_link, &town],
-        ) {
-            Ok(_) => {
-                log!("create game room success");
-            }
-            Err(e) => {
-                println!("Error: {}", e);
-            }
-        }
+        )?;
 
         Ok(RoomCreateResponse {
             room_id,
