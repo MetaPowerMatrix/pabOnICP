@@ -927,7 +927,18 @@ impl MetaPowerMatrixBatteryService {
         let (_,): ((),) = match call(
             callee,
             "request_kol_registration",
-            (self.id.clone(),),
+            (request.key.clone(),),
+        )
+        .await
+        {
+            Ok(response) => response,
+            Err((code, msg)) => return Err(anyhow!("{}: {}", code as u8, msg)),
+        };
+
+        let (_,): ((),) = match call(
+            callee,
+            "request_pato_kol_token",
+            (request.key,),
         )
         .await
         {

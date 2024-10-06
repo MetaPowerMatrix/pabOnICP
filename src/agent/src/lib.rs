@@ -169,12 +169,11 @@ pub fn setup_battery_auth(id: String, token: String) {
 }
 
 #[ic_cdk::update]
-pub async fn refresh_battery_auth(id: String) {
+pub async fn refresh_battery_auth(id: String) -> String{
     let (bytes,): (Vec<u8>,) =
         ic_cdk::api::call::call(Principal::management_canister(), "raw_rand", ())
             .await
             .unwrap_or_default();
-    // let pato_id = bytes.iter().map(|b| format!("{:02x}", b)).collect::<String>();
     let token = bytes.iter().fold("".to_string(), |mut acc, a| {
         write!(acc, "{:02x}", a).unwrap_or_default();
         acc
@@ -183,13 +182,15 @@ pub async fn refresh_battery_auth(id: String) {
     BATTERY_CALLEE.with(|v| {
         if let Some(json_str) = v.borrow().get(&id) {
             if let Ok(mut info) = serde_json::from_str::<PatoInfo>(&json_str) {
-                info.token = token;
+                info.token = token.clone();
                 info.token_refresh_at = get_now_secs();
                 v.borrow_mut()
                     .insert(id, serde_json::to_string(&info).unwrap_or_default());
             }
         }
     });
+
+    token
 }
 
 #[ic_cdk::query]
@@ -295,21 +296,31 @@ fn request_inject_human_voice(id: String, roles: Vec<String>, session: String, m
 }
 
 #[ic_cdk::query]
-async fn query_pato_by_auth_token(token: String) -> TokenResponse {
+async fn query_pato_kol_token(token: String) -> TokenResponse {
     _must_initialized();
     let request = TokenRequest { token };
-    match MetaPowerMatrixAgentService::new().query_pato_by_auth_token(request) {
+    match MetaPowerMatrixAgentService::new().query_pato_kol_token(request) {
+        Ok(response) => response,
+        Err(err) => ic_cdk::trap(&err.to_string()),
+    }
+}
+
+#[ic_cdk::query]
+async fn query_pato_by_kol_token(token: String) -> TokenResponse {
+    _must_initialized();
+    let request = TokenRequest { token };
+    match MetaPowerMatrixAgentService::new().query_pato_by_kol_token(request) {
         Ok(response) => response,
         Err(err) => ic_cdk::trap(&err.to_string()),
     }
 }
 
 #[ic_cdk::update]
-async fn request_pato_auth_token(id: String) -> SimpleResponse {
+async fn request_pato_kol_token(id: String) -> SimpleResponse {
     _must_initialized();
     let request = SimpleRequest { id };
     match MetaPowerMatrixAgentService::new()
-        .request_pato_auth_token(request)
+        .request_pato_kol_token(request)
         .await
     {
         Ok(response) => response,

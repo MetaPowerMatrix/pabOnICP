@@ -305,7 +305,7 @@ impl MetaPowerMatrixAgentService {
         Ok(())
     }
 
-    pub async fn request_pato_auth_token(
+    pub async fn request_pato_kol_token(
         &self,
         request: SimpleRequest,
     ) -> std::result::Result<SimpleResponse, Error> {
@@ -347,7 +347,36 @@ impl MetaPowerMatrixAgentService {
         })
     }
 
-    pub fn query_pato_by_auth_token(
+    pub fn query_pato_kol_token(
+        &self,
+        request: TokenRequest,
+    ) -> std::result::Result<TokenResponse, Error> {
+        let select_pro_table = format!(
+            "select * from kol_auth_token where id = \"{}\" order by registered_at",
+            request.token.clone()
+        );
+        let mut token_info = TokenResponse::default();
+        
+        match MetapowerSqlite3::query_db(&select_pro_table, vec!["token", "name"]) {
+            Ok(records) => {
+                if !records.is_empty() {
+                    for record in records {
+                        token_info = TokenResponse {
+                            id: request.token.clone(),
+                            name: record.get("name").unwrap().to_string(),
+                            token: record.get("token").unwrap().to_string(),
+                        };
+                    }
+                    Ok(token_info)
+                } else {
+                    Err(anyhow!("KOL auth token not registered"))
+                }
+            }
+            Err(e) => Err(e),
+        }
+    }
+
+    pub fn query_pato_by_kol_token(
         &self,
         request: TokenRequest,
     ) -> std::result::Result<TokenResponse, Error> {
@@ -364,6 +393,7 @@ impl MetaPowerMatrixAgentService {
                         token_info = TokenResponse {
                             id: record.get("id").unwrap().to_string(),
                             name: record.get("name").unwrap().to_string(),
+                            token: request.token.clone(),
                         };
                     }
                     Ok(token_info)
