@@ -20,3 +20,4 @@ tokio-util = { version = "0.7.12", features = ["io"] }
 futures-util = "0.3.30"
 futures = "0.3.30"
 ic-canister-log = "0.2.0"
+serde_qs = "0.13.0"

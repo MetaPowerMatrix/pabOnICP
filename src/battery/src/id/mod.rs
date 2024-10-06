@@ -36,7 +36,7 @@ use crate::reverie::memory::{
     find_chat_session_dirs, get_kol_messages, get_kol_messages_summary, get_pato_knowledges,
     save_kol_chat_message,
 };
-use crate::{AGENT_CALLEE, BATTERY_AVATAR, BATTERY_CHARACTER, BATTERY_TAGS};
+use crate::{AGENT_CALLEE, BATTERY_AVATAR, BATTERY_CHARACTER, BATTERY_COVER, BATTERY_TAGS};
 
 const MAX_SUBJECT_LEN: i32 = 22;
 
@@ -912,7 +912,7 @@ impl MetaPowerMatrixBatteryService {
         &self,
         request: BecomeKolRequest,
     ) -> std::result::Result<(), Error> {
-        match BSCSvcClient::default().bsc_proxy_get::<DataResponse>(&format!("query/staking/{}", request.key)).await{
+        match BSCSvcClient::default().bsc_proxy_get::<String, DataResponse>(&format!("query/staking/{}", request.key), None).await{
             Ok(resp) => {
                 if resp.code != "200" && (resp.content.parse::<u64>().unwrap_or(0) < 10000) {
                     return Err(anyhow!("{}: {}", resp.code, resp.content));
@@ -1086,7 +1086,7 @@ impl MetaPowerMatrixBatteryService {
         };
         match client
             .call_llm_proxy::<CharacterGenRequest, CharacterGenResponse>(
-                "gen_character_with_prompt",
+                "/api/gen/character",
                 tag_request,
             )
             .await
@@ -1106,8 +1106,37 @@ impl MetaPowerMatrixBatteryService {
                 // println!("chat_request: {:?}", chat_request);
                 match client
                     .call_llm_proxy::<ImageGenRequest, ImageGenResponse>(
-                        "gen_image_with_prompt",
+                        "/api/gen/image",
                         image_request,
+                    )
+                    .await
+                {
+                    Ok(answer) => {
+                        resp.avatar = answer.image_url.clone();
+                        match download_image(id.clone(), &resp.avatar).await {
+                            Ok(xfiles_link) => {
+                                BATTERY_COVER.with(|avatar| {
+                                    let mut avatar = avatar.borrow_mut();
+                                    avatar.insert(id.clone(), xfiles_link);
+                                });
+                            }
+                            Err(e) => {
+                                return Err(e);
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        return Err(e);
+                    }
+                }
+                let avatar_prompt = format!("draw an avatar according to the characteristics of {}", request.tags.join(" "));
+                let avatar_request = ImageGenRequest {
+                    prompt: avatar_prompt,
+                };
+                match client
+                    .call_llm_proxy::<ImageGenRequest, ImageGenResponse>(
+                        "/api/gen/avatar",
+                        avatar_request,
                     )
                     .await
                 {

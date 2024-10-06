@@ -8,7 +8,7 @@ use candid::Principal;
 use ic_cdk::{call, caller};
 use ic_stable_structures::{memory_manager::{MemoryId, MemoryManager, VirtualMemory}, StableBTreeMap, DefaultMemoryImpl, RestrictedMemory};
 use id::MetaPowerMatrixBatteryService;
-use metapower_framework::{dao::http::{send_http_get_request, send_http_post_request}, log, AnswerReply, BecomeKolRequest, BestTalkRequest, MessageRequest, SomeDocs};
+use metapower_framework::{dao::http::{send_http_get_request, send_http_post_request}, log, AnswerReply, BecomeKolRequest, BestTalkRequest, MessageRequest, SomeDocs, SubmitTagsRequest};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 
@@ -27,6 +27,7 @@ type VM = VirtualMemory<RM>;
 const BATTERY_TAGS_MEM_ID: MemoryId = MemoryId::new(0);
 const BATTERY_AVATAR_MEM_ID: MemoryId = MemoryId::new(1);
 const BATTERY_CHARACTER_MEM_ID: MemoryId = MemoryId::new(2);
+const BATTERY_COVER_MEM_ID: MemoryId = MemoryId::new(3);
 const METADATA_PAGES: u64 = 256;
 
 thread_local! {
@@ -45,6 +46,11 @@ thread_local! {
     static BATTERY_AVATAR: RefCell<StableBTreeMap<String, String, VM>> =
         MEMORY_MANAGER.with(|mm| {
             RefCell::new(StableBTreeMap::init(mm.borrow().get(BATTERY_AVATAR_MEM_ID)))
+        });
+
+    static BATTERY_COVER: RefCell<StableBTreeMap<String, String, VM>> =
+        MEMORY_MANAGER.with(|mm| {
+            RefCell::new(StableBTreeMap::init(mm.borrow().get(BATTERY_COVER_MEM_ID)))
         });
 
     static BATTERY_CHARACTER: RefCell<StableBTreeMap<String, String, VM>> =
@@ -157,9 +163,11 @@ pub async fn talk(id: String, token: String, message: String, subject: String, p
 }
 
 #[ic_cdk::update]
-pub async fn do_battery_service(id: String, token: String, sn: i64, method_name: String, args: String){
+pub async fn do_battery_service(id: String, token: String, sn: i64, method_name: String, args: String) -> String{
     _must_initialized();
     _auth_battery(id.clone(), token, sn).await;
+
+    let mut response_string = String::default();
 
     match method_name.as_str() {
         "talk" => {
@@ -186,13 +194,30 @@ pub async fn do_battery_service(id: String, token: String, sn: i64, method_name:
                 }
             }
         }
-        "got_documents_summary" => {
+        "request_submit_tags" => {
             let svc =  MetaPowerMatrixBatteryService::new(id);
+            match serde_json::from_str::<SubmitTagsRequest>(&args){
+                Ok(request) => {
+                    match svc.request_submit_tags(request).await{
+                        Ok(response) => {
+                            response_string = serde_json::to_string(&response).unwrap_or_default();
+                        }
+                        Err(e) => {
+                            ic_cdk::trap(&e.to_string());
+                        }
+                    }
+                }
+                Err(e) => {
+                    ic_cdk::trap(&format!("request_submit_tags error: {}", e));
+                }
+            }
         }
         _ => {
             ic_cdk::trap("unknown method");
         }
     }
+
+    response_string
 }
 
 ic_cdk::export_candid!();

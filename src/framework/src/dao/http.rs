@@ -5,12 +5,14 @@ use ic_cdk::api::management_canister::http_request::{
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::{self};
 use anyhow::{anyhow, Error};
-
 use crate::{AnswerReply, BestTalkRequest, SomeDocs};
 
 const HTTP_CYCLE_COST: u128 = 49140000;
+const METAPOWER_PROXY_HOST: &str = "api.metapowermatrix.ai";
 const BSC_PROXY_HOST: &str = "icp.metapowermatrix.ai";
 const LLM_PROXY_HOST: &str = "llm.metapowermatrix.ai";
+const LLM_REQUEST_PROTOCOL: &str = "http://";
+const ICP_CLIENT: &str = "battery_icp";
 
 // This struct is legacy code and is not really used in the code.
 #[derive(Serialize, Deserialize)]
@@ -19,7 +21,7 @@ struct Context {
     closing_price_index: usize,
 }
 
-pub async fn send_http_get_request(host: String, url: String, module: String) -> Result<String, String> {
+pub async fn send_http_get_request<T: Serialize>(host: String, path: String, module: String, query: Option<T>) -> Result<String, String> {
     let request_headers = vec![
         HttpHeader {
             name: "Host".to_string(),
@@ -37,11 +39,18 @@ pub async fn send_http_get_request(host: String, url: String, module: String) ->
         closing_price_index: 4,
     };
 
+    let url = if query.is_none() {
+        format!("{}{}", LLM_REQUEST_PROTOCOL, path)
+    } else {
+        let query_string = serde_qs::to_string(&query).unwrap();
+        format!("{}{}?{}", LLM_REQUEST_PROTOCOL, path, query_string)
+    };
+
     let request = CanisterHttpRequestArgument {
-        url: url.to_string(),
+        url,
         method: HttpMethod::GET,
         body: None,               //optional for request
-        max_response_bytes: None, //optional for request
+        max_response_bytes: Some(2048), //optional for request
         // transform: None,          //optional for request
         transform: Some(TransformContext::from_name("transform".to_string(), serde_json::to_vec(&context).unwrap())),
         headers: request_headers,
@@ -63,7 +72,7 @@ pub async fn send_http_get_request(host: String, url: String, module: String) ->
 }
 
 //Update method using the HTTPS outcalls feature
-pub async fn send_http_post_request(host: String, url: String, module: String, json_string: String) -> Result<String, String> {
+pub async fn send_http_post_request(host: String, path: String, module: String, json_string: String) -> Result<String, String> {
     let request_headers = vec![
         HttpHeader {
             name: "Host".to_string(),
@@ -87,9 +96,10 @@ pub async fn send_http_post_request(host: String, url: String, module: String, j
         closing_price_index: 4,
     };
 
+    let url = format!("{}{}", LLM_REQUEST_PROTOCOL, path);
     let request = CanisterHttpRequestArgument {
-        url: url.to_string(),
-        max_response_bytes: None, //optional for request
+        url,
+        max_response_bytes: Some(2048), //optional for request
         method: HttpMethod::POST,
         headers: request_headers,
         body: request_body,
@@ -158,6 +168,54 @@ pub fn transform(raw: TransformArgs) -> HttpResponse {
     res
 }
 
+pub struct MetaPowerSvcClient {
+    pub host: String,
+    pub module: String,
+}
+
+impl Default for MetaPowerSvcClient {
+    fn default() -> Self {
+        MetaPowerSvcClient::new(METAPOWER_PROXY_HOST.to_string(), ICP_CLIENT.to_string())
+    }
+}
+
+impl MetaPowerSvcClient {
+    pub fn new(host: String, module: String) -> Self {
+        MetaPowerSvcClient { host, module }
+    }
+    pub async fn metapower_proxy_post<T: serde::Serialize, R: DeserializeOwned>(&self, url: &str, req: T) -> Result<R, Error> {
+        let json_string = serde_json::to_string(&req).unwrap_or_default();
+
+        match send_http_post_request(self.host.clone(), url.to_string(), self.module.clone(), json_string).await {
+            Ok(response) => {
+                match serde_json::from_str::<R>(&response){
+                    Ok(talk_response) => {
+                        Ok(talk_response)
+                    }
+                    Err(e) => {
+                        Err(anyhow!("{} error: {}", url, e))
+                    }                    
+                }
+            }
+            Err(e) => Err(anyhow!("{} error: {}", url, e)),
+        }
+    }
+    pub async fn metapower_proxy_get<T: serde::Serialize, R: DeserializeOwned>(&self, url: &str, query: Option<T>) -> Result<R, Error> {
+        match send_http_get_request(self.host.clone(), url.to_string(), self.module.clone(), query).await {
+            Ok(response) => {
+                match serde_json::from_str::<R>(&response){
+                    Ok(talk_response) => {
+                        Ok(talk_response)
+                    }
+                    Err(e) => {
+                        Err(anyhow!("{} error: {}", url, e))
+                    }                    
+                }
+            }
+            Err(e) => Err(anyhow!("{} error: {}", url, e)),
+        }
+    }
+}
 pub struct BSCSvcClient {
     pub host: String,
     pub module: String,
@@ -165,7 +223,7 @@ pub struct BSCSvcClient {
 
 impl Default for BSCSvcClient {
     fn default() -> Self {
-        BSCSvcClient::new(BSC_PROXY_HOST.to_string(), "battery".to_string())
+        BSCSvcClient::new(BSC_PROXY_HOST.to_string(), ICP_CLIENT.to_string())
     }
 }
 
@@ -190,8 +248,8 @@ impl BSCSvcClient {
             Err(e) => Err(anyhow!("{} error: {}", url, e)),
         }
     }
-    pub async fn bsc_proxy_get<R: DeserializeOwned>(&self, url: &str) -> Result<R, Error> {
-        match send_http_get_request(self.host.clone(), url.to_string(), self.module.clone()).await {
+    pub async fn bsc_proxy_get<T: serde::Serialize, R: DeserializeOwned>(&self, url: &str, query: Option<T>) -> Result<R, Error> {
+        match send_http_get_request(self.host.clone(), url.to_string(), self.module.clone(), query).await {
             Ok(response) => {
                 match serde_json::from_str::<R>(&response){
                     Ok(talk_response) => {
@@ -213,7 +271,7 @@ pub struct LLMSvcClient {
 
 impl Default for LLMSvcClient {
     fn default() -> Self {
-        LLMSvcClient::new(LLM_PROXY_HOST.to_string(), "battery".to_string())
+        LLMSvcClient::new(LLM_PROXY_HOST.to_string(), ICP_CLIENT.to_string())
     }
 }
 

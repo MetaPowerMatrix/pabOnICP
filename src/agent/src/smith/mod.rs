@@ -7,15 +7,14 @@ use metapower_framework::{
 };
 use metapower_framework::{
     AirdropRequest, ChangeBalanceRequest, EmptyRequest, FollowKolRequest, ImageGenRequest,
-    InjectHumanVoiceRequest, KolListResponse, KolRegistrationRequest, KolRelations, MessageRequest,
-    NamePros, NameRequest, NameResponse, PatoInfo, PatoInfoResponse, PopulationRegistrationRequest,
-    ProfessionalsResponse, RoomCreateRequest, RoomCreateResponse, RoomInfo, RoomListResponse,
-    SimpleRequest, SimpleResponse, TokenRequest, TokenResponse,
+    ImageGenResponse, InjectHumanVoiceRequest, KolListResponse, KolRegistrationRequest,
+    KolRelations, MessageRequest, NamePros, NameRequest, NameResponse, PatoInfo, PatoInfoResponse,
+    PopulationRegistrationRequest, ProfessionalsResponse, RoomCreateRequest, RoomCreateResponse,
+    RoomInfo, RoomListResponse, SimpleRequest, SimpleResponse, TokenRequest, TokenResponse,
     TopicChatHisResponse, TopicChatRequest, UserActiveRequest,
 };
 use metapower_framework::{
-    BATTERY_GRPC_REST_SERVER, BATTERY_GRPC_SERVER_PORT_START, LLMCHAT_GRPC_REST_SERVER,
-    OFFICIAL_PATO, XFILES_LOCAL_DIR, XFILES_SERVER,
+    BATTERY_GRPC_REST_SERVER, BATTERY_GRPC_SERVER_PORT_START, OFFICIAL_PATO, XFILES_SERVER,
 };
 use sha1::Digest;
 use std::collections::HashMap;
@@ -63,9 +62,11 @@ impl MetaPowerMatrixAgentService {
 
     pub fn get_pato_name(&self, id: String) -> Option<String> {
         let mut name = None;
-        BATTERY_CALLEE.with(|v| if let Some(json_str) = v.borrow().get(&id) {
-            if let Ok(info) = serde_json::from_str::<PatoInfo>(&json_str) {
-                name = Some(info.name);
+        BATTERY_CALLEE.with(|v| {
+            if let Some(json_str) = v.borrow().get(&id) {
+                if let Ok(info) = serde_json::from_str::<PatoInfo>(&json_str) {
+                    name = Some(info.name);
+                }
             }
         });
 
@@ -540,10 +541,6 @@ impl MetaPowerMatrixAgentService {
             ic_cdk::api::call::call(Principal::management_canister(), "raw_rand", ())
                 .await
                 .unwrap_or_default();
-        let image_file_name = bytes
-            .iter()
-            .map(|b| format!("{:02x}", b))
-            .collect::<String>();
         let mut xfiles_link = String::default();
 
         let prompt = format!(
@@ -551,17 +548,16 @@ impl MetaPowerMatrixAgentService {
             description
         );
         let image_request = ImageGenRequest { prompt };
-        match LLMSvcClient::default().call_llm_proxy::<ImageGenRequest, String>("gen/image", image_request).await
+        match LLMSvcClient::default()
+            .call_llm_proxy::<ImageGenRequest, ImageGenResponse>("api/gen/image", image_request)
+            .await
         {
-            Ok(answer) => {
-                xfiles_link = answer.clone();
-                match download_image(owner.clone(), &answer).await {
-                    Ok(_) => {                    }
-                    Err(e) => {
-                        return Err(e);
-                    }
+            Ok(answer) => match download_image(owner.clone(), &answer.image_url).await {
+                Ok(xfile) => xfiles_link = xfile,
+                Err(e) => {
+                    return Err(e);
                 }
-            }
+            },
             Err(e) => {
                 return Err(e);
             }
