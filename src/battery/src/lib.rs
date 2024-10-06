@@ -3,13 +3,21 @@ pub mod runner;
 pub mod reverie;
 
 use std::cell::RefCell;
-use anyhow::{anyhow, Error};
 use candid::Principal;
 use ic_cdk::{call, caller};
 use ic_stable_structures::{memory_manager::{MemoryId, MemoryManager, VirtualMemory}, StableBTreeMap, DefaultMemoryImpl, RestrictedMemory};
 use id::MetaPowerMatrixBatteryService;
-use metapower_framework::{dao::http::{send_http_get_request, send_http_post_request}, log, AnswerReply, BecomeKolRequest, BestTalkRequest, MessageRequest, SomeDocs, SubmitTagsRequest};
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use metapower_framework::{log, BecomeKolRequest, MessageRequest, SubmitTagsRequest};
+use serde::{Deserialize, Serialize};
+
+#[derive(Deserialize, Debug, Default, Serialize)]
+struct BatterCallParams{
+    id: String,
+    token: String,
+    sn: i64,
+    method_name: String,
+    arg: String,
+}
 
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -163,15 +171,18 @@ pub async fn talk(id: String, token: String, message: String, subject: String, p
 }
 
 #[ic_cdk::update]
-pub async fn do_battery_service(id: String, token: String, sn: i64, method_name: String, args: String) -> String{
+pub async fn do_battery_service(args: String) -> String{
     _must_initialized();
-    _auth_battery(id.clone(), token, sn).await;
+
+    let call_params = serde_json::from_str::<BatterCallParams>(&args).unwrap_or_default();
+
+    _auth_battery(call_params.id.clone(), call_params.token.clone(), call_params.sn).await;
 
     let mut response_string = String::default();
 
-    match method_name.as_str() {
+    match call_params.method_name.as_str() {
         "talk" => {
-            let svc =  MetaPowerMatrixBatteryService::new(id);
+            let svc =  MetaPowerMatrixBatteryService::new(call_params.id);
 
             let request = MessageRequest{
                 message: args,
@@ -182,7 +193,7 @@ pub async fn do_battery_service(id: String, token: String, sn: i64, method_name:
             let resp = svc.talk(request).await;
         }
         "become_kol" => {
-            let svc =  MetaPowerMatrixBatteryService::new(id.clone());
+            let svc =  MetaPowerMatrixBatteryService::new(call_params.id.clone());
             match serde_json::from_str::<BecomeKolRequest>(&args){
                 Ok(request) => {
                     if let Err(e) = svc.become_kol(request).await{
@@ -195,8 +206,8 @@ pub async fn do_battery_service(id: String, token: String, sn: i64, method_name:
             }
         }
         "request_submit_tags" => {
-            let svc =  MetaPowerMatrixBatteryService::new(id);
-            match serde_json::from_str::<SubmitTagsRequest>(&args){
+            let svc =  MetaPowerMatrixBatteryService::new(call_params.id);
+            match serde_json::from_str::<SubmitTagsRequest>(&call_params.arg){
                 Ok(request) => {
                     match svc.request_submit_tags(request).await{
                         Ok(response) => {
