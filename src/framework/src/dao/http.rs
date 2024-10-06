@@ -76,7 +76,7 @@ pub async fn send_http_post_request(host: String, path: String, module: String, 
     let request_headers = vec![
         HttpHeader {
             name: "Host".to_string(),
-            value: host,
+            value: host.clone(),
         },
         HttpHeader {
             name: "User-Agent".to_string(),
@@ -96,7 +96,7 @@ pub async fn send_http_post_request(host: String, path: String, module: String, 
         closing_price_index: 4,
     };
 
-    let url = format!("{}{}", LLM_REQUEST_PROTOCOL, path);
+    let url = format!("{}{}{}", LLM_REQUEST_PROTOCOL, host, path);
     let request = CanisterHttpRequestArgument {
         url,
         max_response_bytes: Some(2048), //optional for request
