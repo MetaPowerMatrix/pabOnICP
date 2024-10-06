@@ -176,7 +176,7 @@ pub async fn do_battery_service(args: String) -> String{
 
     let call_params = serde_json::from_str::<BatterCallParams>(&args).unwrap_or_default();
 
-    _auth_battery(call_params.id.clone(), call_params.token.clone(), call_params.sn).await;
+    // _auth_battery(call_params.id.clone(), call_params.token.clone(), call_params.sn).await;
 
     let mut response_string = String::default();
 
