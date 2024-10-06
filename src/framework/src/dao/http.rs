@@ -11,7 +11,7 @@ const HTTP_CYCLE_COST: u128 = 149140000;
 const METAPOWER_PROXY_HOST: &str = "api.metapowermatrix.ai";
 const BSC_PROXY_HOST: &str = "icp.metapowermatrix.ai";
 const LLM_PROXY_HOST: &str = "llm.metapowermatrix.ai";
-const LLM_REQUEST_PROTOCOL: &str = "http://";
+const LLM_REQUEST_PROTOCOL: &str = "https://";
 const ICP_CLIENT: &str = "battery_icp";
 
 // This struct is legacy code and is not really used in the code.
