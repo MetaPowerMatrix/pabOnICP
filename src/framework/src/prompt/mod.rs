@@ -284,6 +284,6 @@ pub static mut PREDEFINED_TAGS: &str = r#"
         "18禁",
         "无聊",
         "孤独寂寞冷",
-        "KOL",
+        "KOL"
     ]
 "#;
