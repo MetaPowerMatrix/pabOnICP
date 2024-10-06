@@ -7,7 +7,7 @@ use serde_json::{self};
 use anyhow::{anyhow, Error};
 use crate::{AnswerReply, BestTalkRequest, SomeDocs};
 
-const HTTP_CYCLE_COST: u128 = 49140000;
+const HTTP_CYCLE_COST: u128 = 149140000;
 const METAPOWER_PROXY_HOST: &str = "api.metapowermatrix.ai";
 const BSC_PROXY_HOST: &str = "icp.metapowermatrix.ai";
 const LLM_PROXY_HOST: &str = "llm.metapowermatrix.ai";
