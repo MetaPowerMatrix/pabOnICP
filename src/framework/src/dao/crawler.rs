@@ -15,7 +15,7 @@ pub async fn download_image(id: String, file_path: &str, saved_name: String) -> 
         saved_name,
     };
 
-    match MetaPowerSvcClient::default().metapower_proxy_post::<PathInfo, DataResponse>(&format!("/download/ai/resource/{}", id), req).await{
+    match MetaPowerSvcClient::default().metapower_proxy_post::<PathInfo, DataResponse>(&format!("/api/download/ai/resource/{}", id), req).await{
         Ok(resp) => {
             if resp.code == "200" {
                 return Ok(resp.content);
