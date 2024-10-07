@@ -13,7 +13,7 @@ pub async fn download_image(id: String, file_path: &str) -> Result<String, Error
         absolute_path: file_path.to_string(),
     };
 
-    match MetaPowerSvcClient::default().metapower_proxy_post::<PathInfo, DataResponse>(&format!("download/ai/resource/{}", id), req).await{
+    match MetaPowerSvcClient::default().metapower_proxy_post::<PathInfo, DataResponse>(&format!("/download/ai/resource/{}", id), req).await{
         Ok(resp) => {
             if resp.code == "200" {
                 return Ok(resp.content);
