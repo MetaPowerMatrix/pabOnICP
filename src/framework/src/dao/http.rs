@@ -103,7 +103,8 @@ pub async fn send_http_post_request(host: String, path: String, module: String, 
         method: HttpMethod::POST,
         headers: request_headers,
         body: request_body,
-        transform: Some(TransformContext::from_name("transform".to_string(), serde_json::to_vec(&context).unwrap())),
+        transform: None,
+        // transform: Some(TransformContext::from_name("transform".to_string(), serde_json::to_vec(&context).unwrap())),
     };
 
     match http_request(request, HTTP_CYCLE_COST).await {
