@@ -99,7 +99,7 @@ pub async fn send_http_post_request(host: String, path: String, module: String, 
     let url = format!("{}{}{}", LLM_REQUEST_PROTOCOL, host, path);
     let request = CanisterHttpRequestArgument {
         url,
-        max_response_bytes: Some(4096), //optional for request
+        max_response_bytes: Some(8192), //optional for request
         method: HttpMethod::POST,
         headers: request_headers,
         body: request_body,
@@ -116,7 +116,7 @@ pub async fn send_http_post_request(host: String, path: String, module: String, 
         }
         Err((r, m)) => {
             let message =
-                format!("The http_request resulted into error. RejectionCode: {r:?}, Error: {m}");
+                format!("RejectionCode: {r:?}, Error: {m}");
 
             //Return the error as a string and end the method
             Err(message)
