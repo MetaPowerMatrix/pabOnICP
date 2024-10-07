@@ -5,7 +5,7 @@ use std::cell::RefCell;
 use candid::{CandidType, Principal};
 use controller::MetaPowerMatrixControllerService;
 use ic_cdk::{caller, id};
-use metapower_framework::EmptyRequest;
+use metapower_framework::{EmptyRequest, PatoInfo};
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, CandidType)]
@@ -225,12 +225,12 @@ async fn request_create_pato(name: String) -> CreateResonse{
 }
 
 #[ic_cdk::query]
-async fn request_hot_ai() -> Result<HotAiResponse, String>{
+async fn request_hot_ai() -> Vec<PatoInfo>{
     _must_initialized();
-    let request = EmptyRequest {    };
-    match MetaPowerMatrixControllerService::default().request_hot_ai(request).await{
-        Ok(response) => Ok(response),
-        Err(err) => Err(err.to_string()),
+    
+    match MetaPowerMatrixControllerService::default().request_hot_ai().await{
+        Ok(response) => response,
+        Err(err) => ic_cdk::trap(&err.to_string()),
     }
 }
 

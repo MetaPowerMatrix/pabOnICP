@@ -7,7 +7,7 @@ use candid::Principal;
 use ic_cdk::{call, caller};
 use ic_stable_structures::{memory_manager::{MemoryId, MemoryManager, VirtualMemory}, StableBTreeMap, DefaultMemoryImpl, RestrictedMemory};
 use id::MetaPowerMatrixBatteryService;
-use metapower_framework::{log, BecomeKolRequest, MessageRequest, SubmitTagsRequest};
+use metapower_framework::{log, BecomeKolRequest, JoinKolRoomRequest, MessageRequest, SubmitTagsRequest};
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Debug, Default, Serialize)]
@@ -240,7 +240,25 @@ pub async fn do_battery_service(args: String) -> String{
             let svc =  MetaPowerMatrixBatteryService::new(call_params.id.clone());
             match serde_json::from_str::<BecomeKolRequest>(&args){
                 Ok(request) => {
-                    if let Err(e) = svc.become_kol(request).await{
+                    match svc.become_kol(request).await{
+                        Ok(response) => {
+                            response_string = serde_json::to_string(&response).unwrap_or_default();
+                        }
+                        Err(e) => {
+                            ic_cdk::trap(&e.to_string());
+                        }                        
+                    }
+                }
+                Err(e) => {
+                    ic_cdk::trap(&format!("become_kol error: {}", e));
+                }
+            }
+        }
+        "request_join_kol_room" => {
+            let svc =  MetaPowerMatrixBatteryService::new(call_params.id.clone());
+            match serde_json::from_str::<JoinKolRoomRequest>(&args){
+                Ok(request) => {
+                    if let Err(e) = svc.request_join_kol_room(request).await{
                         ic_cdk::trap(&e.to_string());
                     }
                 }

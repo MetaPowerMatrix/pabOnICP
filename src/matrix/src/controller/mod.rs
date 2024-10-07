@@ -19,7 +19,7 @@ use crate::{
 use ic_cdk::api::call::call;
 use metapower_framework::dao::sqlite::MetapowerSqlite3;
 use metapower_framework::{
-    log, AllPatosResponse, EmptyRequest, NameResponse, SimpleResponse
+    log, AllPatosResponse, EmptyRequest, NameResponse, PatoInfo, SimpleResponse
 };
 
 type RM = RestrictedMemory<DefaultMemoryImpl>;
@@ -167,58 +167,18 @@ impl MetaPowerMatrixControllerService {
 
         Ok(response)
     }
-    pub async fn request_hot_ai(
-        &self,
-        _request: EmptyRequest,
-    ) -> std::result::Result<HotAiResponse, String> {
-        let mut all_ais: Vec<HotAi> = vec![];
+    pub async fn request_hot_ai(&self) -> std::result::Result<Vec<PatoInfo>, String> {
         let callee = CALLEE.with(|callee| *callee.borrow().as_ref().unwrap());
 
-        let (patos_resp,): (AllPatosResponse,) =
+        let (patos_resp,): (Vec<PatoInfo>,) =
             match call(callee, "request_all_patos", ()).await {
                 Ok(response) => response,
                 Err((code, msg)) => {
                     return Err(format!("request_all_patos失败: {}: {}", code as u8, msg))
                 }
             };
-        let patos = patos_resp.pato_sn_id;
-        let ids: Vec<String> = patos.iter().map(|p| p.id.to_owned()).collect();
 
-        let (resp,): (NameResponse,) =
-            match call(callee, "request_pato_name_and_pro", (ids,)).await {
-                Ok(name_pro_resp) => name_pro_resp,
-                Err((code, msg)) => {
-                    return Err(format!(
-                        "request_pato_name_and_pro: {}: {}",
-                        code as u8, msg
-                    ))
-                }
-            };
-        for pato in patos {
-            for name_pro in resp.name_pros.iter() {
-                if name_pro.id == pato.id {
-                    let info = HotAi {
-                        id: pato.id.clone(),
-                        name: name_pro.name.clone(),
-                        talks: 1,
-                        pros: name_pro.pros.join(","),
-                    };
-                    all_ais.push(info);
-                }
-            }
-        }
-
-        all_ais.sort_by(|a, b| b.talks.cmp(&a.talks));
-        log!("all sorted ais {:?}", all_ais);
-        let hot_ais = if all_ais.len() > 10 {
-            let _ = all_ais.split_off(5);
-            all_ais
-        } else {
-            all_ais
-        };
-        log!("hot_ais {:?}", hot_ais);
-        let response = HotAiResponse { sheniu: hot_ais };
-        Ok(response)
+        Ok(patos_resp)
     }
 
     pub async fn request_shared_knowledges(
@@ -227,7 +187,7 @@ impl MetaPowerMatrixControllerService {
     ) -> std::result::Result<SharedKnowledgesResponse, String> {
         let mut knowledges: Vec<Knowledge> = vec![];
 
-        let callee = CALLEE.with(|callee| callee.borrow().as_ref().unwrap().clone());
+        let callee = CALLEE.with(|callee| *callee.borrow().as_ref().unwrap());
 
         let (patos_resp,): (AllPatosResponse,) =
             match call(callee, "request_all_patos", ()).await {

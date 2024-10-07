@@ -4,7 +4,7 @@ use anyhow::{anyhow, Error};
 use ic_cdk::call;
 use metapower_framework::dao::crawler::download_image;
 use metapower_framework::dao::http::{BSCSvcClient, LLMSvcClient};
-use metapower_framework::{DataResponse, AI_PATO_DIR};
+use metapower_framework::{DataResponse, SimpleResponse, AI_PATO_DIR};
 use metapower_framework::{
     ensure_directory_exists, get_event_subjects, get_now_secs, log,
     publish_battery_actions, AnswerReply, ArchiveMessageRequest,
@@ -911,8 +911,8 @@ impl MetaPowerMatrixBatteryService {
     pub async fn become_kol(
         &self,
         request: BecomeKolRequest,
-    ) -> std::result::Result<(), Error> {
-        match BSCSvcClient::default().bsc_proxy_get::<String, DataResponse>(&format!("query/staking/{}", request.key), None).await{
+    ) -> std::result::Result<SimpleResponse, Error> {
+        match BSCSvcClient::default().bsc_proxy_get::<String, DataResponse>(&format!("/api/kol/query/staking/{}", request.key), None).await{
             Ok(resp) => {
                 if resp.code != "200" && (resp.content.parse::<u64>().unwrap_or(0) < 10000) {
                     return Err(anyhow!("{}: {}", resp.code, resp.content));
@@ -935,41 +935,39 @@ impl MetaPowerMatrixBatteryService {
             Err((code, msg)) => return Err(anyhow!("{}: {}", code as u8, msg)),
         };
 
-        let (_,): ((),) = match call(
+        let (token_resp,): (SimpleResponse,) = match call(
             callee,
             "request_pato_kol_token",
             (request.key,),
-        )
-        .await
+        ).await
         {
             Ok(response) => response,
             Err((code, msg)) => return Err(anyhow!("{}: {}", code as u8, msg)),
         };
 
-        Ok(())
+        Ok(token_resp)
     }
 
     pub async fn request_join_kol_room(
         &self,
         request: JoinKolRoomRequest,
-    ) -> std::result::Result<EmptyRequest, Error> {
+    ) -> std::result::Result<(), Error> {
         let callee = AGENT_CALLEE.with(|callee| *callee.borrow().as_ref().unwrap());
-        let (follow_resp,): (EmptyRequest,) = match call(
+        let (_,):((),) = match call(
             callee,
-            "request_add_kol_follower",
+            "request_follow_kol",
             (
-                self.id.clone(),
-                request.follower.clone(),
-                request.key.clone(),
+                request.kol,
+                request.follower,
+                request.key,
             ),
-        )
-        .await
+        ).await
         {
             Ok(response) => response,
-            Err((code, msg)) => return Err(anyhow!("become_kol失败: {}: {}", code as u8, msg)),
+            Err((code, msg)) => return Err(anyhow!("request_follow_kol: {}: {}", code as u8, msg)),
         };
 
-        Ok(follow_resp)
+        Ok(())
     }
 
     pub async fn request_image_context(

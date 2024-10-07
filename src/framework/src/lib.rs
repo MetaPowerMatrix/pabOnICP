@@ -174,7 +174,7 @@ pub struct AirdropRequest {
     pub amount: f32,
 }
 
-#[derive(Deserialize, CandidType)]
+#[derive(Deserialize, CandidType, Serialize)]
 pub struct SimpleResponse {
     pub success: bool,
     pub message: String,
