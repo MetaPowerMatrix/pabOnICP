@@ -224,7 +224,7 @@ async fn request_create_pato(name: String) -> CreateResonse{
     }
 }
 
-#[ic_cdk::query]
+#[ic_cdk::update]
 async fn request_hot_ai() -> Vec<PatoInfo>{
     _must_initialized();
     
@@ -234,7 +234,7 @@ async fn request_hot_ai() -> Vec<PatoInfo>{
     }
 }
 
-#[ic_cdk::query]
+#[ic_cdk::update]
 async fn request_shared_knowledges() -> Result<SharedKnowledgesResponse, String>{
     _must_initialized();
     let request = EmptyRequest {    };
