@@ -1108,7 +1108,7 @@ impl MetaPowerMatrixBatteryService {
 
                 BATTERY_CHARACTER.with(|character| {
                     let mut character = character.borrow_mut();
-                    character.insert(id.clone(), iss);
+                    character.insert(id.clone(), iss.clone());
                 });
 
                 let image_request = ImageGenRequest {
@@ -1140,7 +1140,7 @@ impl MetaPowerMatrixBatteryService {
                         return Err(e);
                     }
                 }
-                let avatar_prompt = format!("draw an avatar according to the characteristics of {}", request.tags.join(" "));
+                let avatar_prompt = format!("Design an avatar that represents a fictional character or persona for storytelling or role-playing purposes. Provide details about the character's appearance, personality traits, and backstory to create a visually compelling and immersive avatar: {}", iss);
                 let avatar_request = ImageGenRequest {
                     prompt: avatar_prompt,
                 };

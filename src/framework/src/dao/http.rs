@@ -25,7 +25,7 @@ pub async fn send_http_get_request<T: Serialize>(host: String, path: String, mod
     let request_headers = vec![
         HttpHeader {
             name: "Host".to_string(),
-            value: host,
+            value: host.clone(),
         },
         HttpHeader {
             name: "User-Agent".to_string(),
@@ -40,17 +40,17 @@ pub async fn send_http_get_request<T: Serialize>(host: String, path: String, mod
     };
 
     let url = if query.is_none() {
-        format!("{}{}", LLM_REQUEST_PROTOCOL, path)
+        format!("{}{}{}", LLM_REQUEST_PROTOCOL, host, path)
     } else {
         let query_string = serde_qs::to_string(&query).unwrap();
-        format!("{}{}?{}", LLM_REQUEST_PROTOCOL, path, query_string)
+        format!("{}{}{}?{}", LLM_REQUEST_PROTOCOL, host, path, query_string)
     };
 
     let request = CanisterHttpRequestArgument {
         url,
         method: HttpMethod::GET,
         body: None,               //optional for request
-        max_response_bytes: Some(2048), //optional for request
+        max_response_bytes: Some(4096), //optional for request
         // transform: None,          //optional for request
         transform: Some(TransformContext::from_name("transform".to_string(), serde_json::to_vec(&context).unwrap())),
         headers: request_headers,
@@ -99,7 +99,7 @@ pub async fn send_http_post_request(host: String, path: String, module: String, 
     let url = format!("{}{}{}", LLM_REQUEST_PROTOCOL, host, path);
     let request = CanisterHttpRequestArgument {
         url,
-        max_response_bytes: Some(2048), //optional for request
+        max_response_bytes: Some(4096), //optional for request
         method: HttpMethod::POST,
         headers: request_headers,
         body: request_body,
@@ -163,7 +163,7 @@ pub fn transform(raw: TransformArgs) -> HttpResponse {
     if i32::try_from(res.status.clone().0).unwrap() == 200{
         res.body = raw.response.body;
     } else {
-        ic_cdk::api::print(format!("Received an error from coinbase: err = {:?}", raw));
+        ic_cdk::api::print(format!("Received an error: err = {:?}", raw));
     }
     res
 }
