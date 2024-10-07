@@ -32,6 +32,7 @@ thread_local! {
             RefCell::new(StableBTreeMap::init(mm.borrow().get(BATTERY_MEM_ID)))
         });
     static USER_DEFINED_TAGS: RefCell<String> =  RefCell::new("".to_string());
+    static BATTERY: RefCell<Option<Principal>> = const { RefCell::new(None) };
 }
 
 #[ic_cdk::init]
@@ -90,6 +91,13 @@ pub fn hi() -> String {
 #[ic_cdk::query]
 pub fn get_population_quantities() -> u64 {
     MetaPowerMatrixAgentService::default().request_pato_count()
+}
+
+#[ic_cdk::update]
+pub fn setup_battery_canister(_id: String, battery_canister: Principal) {
+    BATTERY.with(|callee| {
+        *callee.borrow_mut() = Some(battery_canister);
+    });
 }
 
 #[ic_cdk::update]
@@ -208,10 +216,10 @@ pub async fn get_battery_auth(id: String) -> Option<String> {
 }
 
 #[ic_cdk::query]
-fn request_pato_info(id: String) -> PatoInfoResponse {
+async fn request_pato_info(id: String) -> PatoInfoResponse {
     _must_initialized();
     let request = SimpleRequest { id };
-    match MetaPowerMatrixAgentService::new().request_pato_info(request) {
+    match MetaPowerMatrixAgentService::new().request_pato_info(request).await {
         Ok(response) => response,
         Err(err) => ic_cdk::trap(&err.to_string()),
     }

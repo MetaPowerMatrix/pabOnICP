@@ -5,8 +5,8 @@ use super::http::MetaPowerSvcClient;
 
 #[derive(Serialize)]
 pub struct PathInfo {
-    absolute_path: String,
-    saved_name: String,
+    pub absolute_path: String,
+    pub saved_name: String,
 }
 
 pub async fn download_image(id: String, file_path: &str, saved_name: String) -> Result<String, Error> {

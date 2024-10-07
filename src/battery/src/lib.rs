@@ -186,6 +186,17 @@ pub fn cover_of(id: String) -> String{
     cover
 }
 
+#[ic_cdk::query]
+pub fn tags_of(id: String) -> String{
+    _must_initialized();
+
+    let tags = BATTERY_TAGS.with(|tags| {
+        tags.borrow().get(&id).unwrap_or_default()
+    });
+
+    tags
+}
+
 #[ic_cdk::update]
 pub async fn talk(id: String, token: String, message: String, subject: String, prompt: String) -> String{
     _must_initialized();

@@ -1,5 +1,6 @@
 use anyhow::{anyhow, Error};
 use candid::Principal;
+use ic_cdk::call;
 use metapower_framework::dao::crawler::download_image;
 use metapower_framework::dao::http::{send_http_post_request, LLMSvcClient};
 use metapower_framework::{
@@ -19,7 +20,7 @@ use metapower_framework::{
 use sha1::Digest;
 use std::collections::HashMap;
 
-use crate::BATTERY_CALLEE;
+use crate::{BATTERY, BATTERY_CALLEE};
 
 //TO-DO-IC-Storage
 fn generate_prompt(curr_input: Vec<String>, prompt: String) -> String {
@@ -131,12 +132,44 @@ impl MetaPowerMatrixAgentService {
         Ok(response)
     }
 
-    pub fn request_pato_info(&self, request: SimpleRequest) -> Result<PatoInfoResponse, Error> {
+    pub async fn request_pato_info(&self, request: SimpleRequest) -> Result<PatoInfoResponse, Error> {
         let id = request.id.clone();
         let select_id_table = format!("select * from pato where id = \"{}\"", id.clone());
         println!("select_id_table sql: {}", select_id_table);
 
-        let avatar_link = format!("{}/avatar/{}/avatar.png", XFILES_SERVER, id);
+        // let avatar_link = format!("{}/avatar/{}/avatar.png", XFILES_SERVER, id);
+        let callee = BATTERY.with(|callee| *callee.borrow().as_ref().unwrap());
+        let (avatar_link,): (String,) = match call(
+            callee,
+            "avatar_of",
+            (id.clone(),),
+        )
+        .await
+        {
+            Ok(response) => response,
+            Err((code, msg)) => return Err(anyhow!("{}: {}", code as u8, msg)),
+        };
+        let (cover,): (String,) = match call(
+            callee,
+            "cover_of",
+            (id.clone(),),
+        )
+        .await
+        {
+            Ok(response) => response,
+            Err((code, msg)) => return Err(anyhow!("{}: {}", code as u8, msg)),
+        };
+        let (tags,): (String,) = match call(
+            callee,
+            "tags_of",
+            (id.clone(),),
+        )
+        .await
+        {
+            Ok(response) => response,
+            Err((code, msg)) => return Err(anyhow!("{}: {}", code as u8, msg)),
+        };
+
 
         let mut pato_info: PatoInfoResponse = PatoInfoResponse::default();
         match MetapowerSqlite3::query_db(
@@ -154,10 +187,10 @@ impl MetaPowerMatrixAgentService {
                         name,
                         sn,
                         registered_datetime,
-                        professionals: vec![],
                         balance: 0.0,
-                        tags: vec![],
+                        tags: tags.split(',').map(|t| t.to_string()).collect(),
                         avatar: avatar_link,
+                        cover,
                     };
                 }
             }
