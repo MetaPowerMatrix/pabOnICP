@@ -1124,7 +1124,7 @@ impl MetaPowerMatrixBatteryService {
                 {
                     Ok(answer) => {
                         resp.avatar = answer.image_url.clone();
-                        match download_image(id.clone(), &resp.avatar).await {
+                        match download_image(id.clone(), &resp.avatar, "cover.png".to_string()).await {
                             Ok(xfiles_link) => {
                                 BATTERY_COVER.with(|avatar| {
                                     let mut avatar = avatar.borrow_mut();
@@ -1153,7 +1153,7 @@ impl MetaPowerMatrixBatteryService {
                 {
                     Ok(answer) => {
                         resp.avatar = answer.image_url.clone();
-                        match download_image(id.clone(), &resp.avatar).await {
+                        match download_image(id.clone(), &resp.avatar, "avatar.png".to_string()).await {
                             Ok(xfiles_link) => {
                                 BATTERY_AVATAR.with(|avatar| {
                                     let mut avatar = avatar.borrow_mut();

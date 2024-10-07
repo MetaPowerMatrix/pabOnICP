@@ -6,11 +6,13 @@ use super::http::MetaPowerSvcClient;
 #[derive(Serialize)]
 pub struct PathInfo {
     absolute_path: String,
+    saved_name: String,
 }
 
-pub async fn download_image(id: String, file_path: &str) -> Result<String, Error> {
+pub async fn download_image(id: String, file_path: &str, saved_name: String) -> Result<String, Error> {
     let req = PathInfo{
         absolute_path: file_path.to_string(),
+        saved_name,
     };
 
     match MetaPowerSvcClient::default().metapower_proxy_post::<PathInfo, DataResponse>(&format!("/download/ai/resource/{}", id), req).await{

@@ -582,7 +582,7 @@ impl MetaPowerMatrixAgentService {
             .call_llm_proxy::<ImageGenRequest, ImageGenResponse>("api/gen/image", image_request)
             .await
         {
-            Ok(answer) => match download_image(owner.clone(), &answer.image_url).await {
+            Ok(answer) => match download_image(owner.clone(), &answer.image_url, "room_cover.png".to_string()).await {
                 Ok(xfile) => xfiles_link = xfile,
                 Err(e) => {
                     return Err(e);
