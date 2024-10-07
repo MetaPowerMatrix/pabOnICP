@@ -153,6 +153,39 @@ pub fn hi(id: String) -> String{
     }
 }
 
+#[ic_cdk::query]
+pub fn character_of(id: String) -> String{
+    _must_initialized();
+
+    let character = BATTERY_CHARACTER.with(|character| {
+        character.borrow().get(&id).unwrap_or_default()
+    });
+
+    character
+}
+
+#[ic_cdk::query]
+pub fn avatar_of(id: String) -> String{
+    _must_initialized();
+
+    let avatar = BATTERY_AVATAR.with(|avatar| {
+        avatar.borrow().get(&id).unwrap_or_default()
+    });
+
+    avatar
+}
+
+#[ic_cdk::query]
+pub fn cover_of(id: String) -> String{
+    _must_initialized();
+
+    let cover = BATTERY_COVER.with(|cover| {
+        cover.borrow().get(&id).unwrap_or_default()
+    });
+
+    cover
+}
+
 #[ic_cdk::update]
 pub async fn talk(id: String, token: String, message: String, subject: String, prompt: String) -> String{
     _must_initialized();
