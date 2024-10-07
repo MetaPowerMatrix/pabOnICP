@@ -94,7 +94,7 @@ pub fn get_population_quantities() -> u64 {
 }
 
 #[ic_cdk::update]
-pub fn setup_battery_canister(_id: String, battery_canister: Principal) {
+pub fn setup_battery_canister(battery_canister: Principal) {
     BATTERY.with(|callee| {
         *callee.borrow_mut() = Some(battery_canister);
     });
@@ -215,7 +215,7 @@ pub async fn get_battery_auth(id: String) -> Option<String> {
     token
 }
 
-#[ic_cdk::query]
+#[ic_cdk::update]
 async fn request_pato_info(id: String) -> PatoInfoResponse {
     _must_initialized();
     let request = SimpleRequest { id };
