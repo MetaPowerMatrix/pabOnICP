@@ -36,7 +36,7 @@ const BATTERY_TAGS_MEM_ID: MemoryId = MemoryId::new(0);
 const BATTERY_AVATAR_MEM_ID: MemoryId = MemoryId::new(1);
 const BATTERY_CHARACTER_MEM_ID: MemoryId = MemoryId::new(2);
 const BATTERY_COVER_MEM_ID: MemoryId = MemoryId::new(3);
-const METADATA_PAGES: u64 = 256;
+const METADATA_PAGES: u64 = 1024;
 
 thread_local! {
     static MATRIX_CALLEE: RefCell<Option<Principal>> = const { RefCell::new(None) };
