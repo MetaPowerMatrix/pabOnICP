@@ -919,7 +919,7 @@ impl MetaPowerMatrixBatteryService {
                 }
             }
             Err(e) => {
-                return Err(e);
+                // return Err(e);
             }
         }
 
