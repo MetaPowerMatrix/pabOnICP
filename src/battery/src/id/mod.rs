@@ -1109,10 +1109,11 @@ impl MetaPowerMatrixBatteryService {
                     character.insert(id.clone(), iss.clone());
                 });
 
+
+                let mut xfiles_link_mock = format!("{}/ai/{}/{}", XFILES_SERVER, id, "cover.png");
                 let image_request = ImageGenRequest {
                     prompt: answer.iss.clone(),
                 };
-                // println!("chat_request: {:?}", chat_request);
                 match client
                     .call_llm_proxy::<ImageGenRequest, ImageGenResponse>(
                         "/api/gen/image",
@@ -1126,7 +1127,7 @@ impl MetaPowerMatrixBatteryService {
                             Ok(xfiles_link) => {
                                 BATTERY_COVER.with(|avatar| {
                                     let mut avatar = avatar.borrow_mut();
-                                    avatar.insert(id.clone(), xfiles_link);
+                                    avatar.insert(id.clone(), xfiles_link_mock);
                                 });
                             }
                             Err(e) => {
@@ -1138,6 +1139,7 @@ impl MetaPowerMatrixBatteryService {
                         return Err(e);
                     }
                 }
+                xfiles_link_mock = format!("{}/ai/{}/{}", XFILES_SERVER, id, "avatar.png");
                 let avatar_prompt = format!("Design an avatar that represents a fictional character or persona for storytelling or role-playing purposes. Provide details about the character's appearance, personality traits, and backstory to create a visually compelling and immersive avatar: {}", iss);
                 let avatar_request = ImageGenRequest {
                     prompt: avatar_prompt,
@@ -1155,7 +1157,7 @@ impl MetaPowerMatrixBatteryService {
                             Ok(xfiles_link) => {
                                 BATTERY_AVATAR.with(|avatar| {
                                     let mut avatar = avatar.borrow_mut();
-                                    avatar.insert(id, xfiles_link);
+                                    avatar.insert(id, xfiles_link_mock);
                                 });
                             }
                             Err(e) => {
