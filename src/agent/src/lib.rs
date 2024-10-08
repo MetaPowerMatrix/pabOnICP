@@ -6,7 +6,7 @@ use ic_cdk::{api::caller, id};
 use ic_stable_structures::memory_manager::{MemoryId, MemoryManager as MM, VirtualMemory};
 use ic_stable_structures::{DefaultMemoryImpl, RestrictedMemory, StableBTreeMap, StableLog};
 use metapower_framework::{
-    get_now_date_str, get_now_secs, AirdropRequest, ChangeBalanceRequest, EmptyRequest, FollowKolRequest, InjectHumanVoiceRequest, KolListResponse, KolRegistrationRequest, NameRequest, NameResponse, PatoInfo, PatoInfoResponse, PopulationRegistrationRequest, RoomCreateRequest, RoomCreateResponse, RoomListResponse, SimpleRequest, SimpleResponse, TokenRequest, TokenResponse, TopicChatHisResponse, TopicChatRequest
+    get_now_date_str, get_now_secs, AirdropRequest, ChangeBalanceRequest, EmptyRequest, FollowKolRequest, InjectHumanVoiceRequest, KolListResponse, KolRegistrationRequest, KolRelations, NameRequest, NameResponse, PatoInfo, PatoInfoResponse, PopulationRegistrationRequest, RoomCreateRequest, RoomCreateResponse, RoomListResponse, SimpleRequest, SimpleResponse, TokenRequest, TokenResponse, TopicChatHisResponse, TopicChatRequest
 };
 use metapower_framework::prompt::PREDEFINED_TAGS;
 use smith::MetaPowerMatrixAgentService;
@@ -465,13 +465,11 @@ fn request_follow_kol(id: String, follower: String, key: String) {
 }
 
 #[ic_cdk::query]
-fn request_kol_list() -> Result<KolListResponse, String> {
+fn request_kol_list() -> Vec<KolRelations> {
     _must_initialized();
-    let request = EmptyRequest {};
-
-    match MetaPowerMatrixAgentService::new().request_kol_list(request) {
-        Ok(response) => Ok(response),
-        Err(err) => Err(err.to_string()),
+    match MetaPowerMatrixAgentService::new().request_kol_list() {
+        Ok(response) => response,
+        Err(e) => ic_cdk::trap(&e.to_string()),
     }
 }
 

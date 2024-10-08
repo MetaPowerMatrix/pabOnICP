@@ -808,11 +808,8 @@ impl MetaPowerMatrixAgentService {
         Ok(())
     }
 
-    pub fn request_kol_list(
-        &self,
-        _request: EmptyRequest,
-    ) -> std::result::Result<KolListResponse, Error> {
-        let mut response = KolListResponse { relations: vec![] };
+    pub fn request_kol_list(&self) -> std::result::Result<Vec<KolRelations>, Error> {
+        let mut response: Vec<KolRelations> = vec![];
 
         let select_room_table = "select id, follower from KOL";
 
@@ -842,13 +839,13 @@ impl MetaPowerMatrixAgentService {
                 None => "".to_string(),
             };
 
-            response.relations.push(KolRelations {
+            response.push(KolRelations {
                 id: key.clone(),
                 follower: value.clone(),
                 name,
             });
         }
-        // log!("response: {:?}", response.relations);
+        
         Ok(response)
     }
 
