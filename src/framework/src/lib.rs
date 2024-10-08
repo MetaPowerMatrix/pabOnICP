@@ -216,6 +216,12 @@ pub struct SnIdPaire {
     pub sn: String,
 }
 
+#[derive(Deserialize, CandidType)]
+pub struct NameIdPaire {
+    pub id: String,
+    pub name: String,
+}
+
 #[derive(Deserialize, CandidType, Default)]
 pub struct SnResponse {
     pub pato_sn_id: Vec<SnIdPaire>,
@@ -431,6 +437,7 @@ pub struct JoinKolRoomRequest {
     pub kol: String,
     pub follower: String,
     pub key: String,
+    pub from: String,
 }
 
 #[derive(Deserialize, CandidType, Serialize, Debug)]

@@ -952,6 +952,18 @@ impl MetaPowerMatrixBatteryService {
         &self,
         request: JoinKolRoomRequest,
     ) -> std::result::Result<(), Error> {
+        match BSCSvcClient::default().bsc_proxy_get::<String, DataResponse>(&format!("/api/kol/query/ticket/{}", request.from), None).await{
+            Ok(resp) => {
+                if resp.code != "200" && (resp.content.parse::<u64>().unwrap_or(0) < 10) {
+                    return Err(anyhow!("{}: {}", resp.code, resp.content));
+                }
+            }
+            Err(e) => {
+                // return Err(e);
+            }
+        }
+
+
         let callee = AGENT_CALLEE.with(|callee| *callee.borrow().as_ref().unwrap());
         let (_,):((),) = match call(
             callee,

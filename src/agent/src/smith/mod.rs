@@ -845,7 +845,7 @@ impl MetaPowerMatrixAgentService {
                 name,
             });
         }
-        
+
         Ok(response)
     }
 
@@ -856,6 +856,7 @@ impl MetaPowerMatrixAgentService {
         let follower = request.follower.clone();
         let id = request.id.clone();
         let add_kol = "INSERT INTO KOL (id, follower) VALUES (?1, ?2)";
+        
         MetapowerSqlite3::new().insert_record(add_kol, &[&id, &follower])?;
 
         Ok(())
