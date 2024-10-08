@@ -5,7 +5,7 @@ use std::cell::RefCell;
 use candid::{CandidType, Principal};
 use controller::MetaPowerMatrixControllerService;
 use ic_cdk::{caller, id};
-use metapower_framework::{EmptyRequest, PatoInfo};
+use metapower_framework::PatoInfo;
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, CandidType)]
@@ -237,10 +237,9 @@ async fn request_hot_ai() -> Vec<PatoInfo>{
 #[ic_cdk::update]
 async fn request_shared_knowledges() -> Result<SharedKnowledgesResponse, String>{
     _must_initialized();
-    let request = EmptyRequest {    };
-    match MetaPowerMatrixControllerService::default().request_shared_knowledges(request).await{
+    match MetaPowerMatrixControllerService::default().request_shared_knowledges().await{
         Ok(response) => Ok(response),
-        Err(err) => Err(err.to_string()),
+        Err(err) => ic_cdk::trap(&err.to_string()),
     }
 }
 

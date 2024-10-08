@@ -34,10 +34,10 @@ pub async fn send_http_get_request<T: Serialize>(host: String, path: String, mod
     ];
 
 
-    let context = Context {
-        bucket_start_time_index: 0,
-        closing_price_index: 4,
-    };
+    // let context = Context {
+    //     bucket_start_time_index: 0,
+    //     closing_price_index: 4,
+    // };
 
     let url = if query.is_none() {
         format!("{}{}{}", LLM_REQUEST_PROTOCOL, host, path)
@@ -91,10 +91,10 @@ pub async fn send_http_post_request(host: String, path: String, module: String, 
     let json_utf8: Vec<u8> = json_string.into_bytes();
     let request_body: Option<Vec<u8>> = Some(json_utf8);
 
-    let context = Context {
-        bucket_start_time_index: 0,
-        closing_price_index: 4,
-    };
+    // let context = Context {
+    //     bucket_start_time_index: 0,
+    //     closing_price_index: 4,
+    // };
 
     let url = format!("{}{}{}", LLM_REQUEST_PROTOCOL, host, path);
     let request = CanisterHttpRequestArgument {
