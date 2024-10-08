@@ -1130,7 +1130,7 @@ impl MetaPowerMatrixBatteryService {
                                 });
                             }
                             Err(e) => {
-                                return Err(e);
+                                // return Err(e);
                             }
                         }
                     }
@@ -1159,7 +1159,7 @@ impl MetaPowerMatrixBatteryService {
                                 });
                             }
                             Err(e) => {
-                                return Err(e);
+                                // return Err(e);
                             }
                         }
                     }
