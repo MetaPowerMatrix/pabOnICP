@@ -232,18 +232,25 @@ pub async fn do_battery_service(args: String) -> String{
     match call_params.method_name.as_str() {
         "talk" => {
             let svc =  MetaPowerMatrixBatteryService::new(call_params.id);
-
-            let request = MessageRequest{
-                message: args,
-                subject: "".to_string(),
-                prompt: "".to_string(),
-            };
-
-            let resp = svc.talk(request).await;
+            match serde_json::from_str::<MessageRequest>(&call_params.arg){
+                Ok(request) => {
+                    match svc.talk(request).await{
+                        Ok(response) => {
+                            response_string = serde_json::to_string(&response).unwrap_or_default();
+                        }
+                        Err(e) => {
+                            ic_cdk::trap(&e.to_string());
+                        }
+                    }
+                }
+                Err(e) => {
+                    ic_cdk::trap(&format!("talk error: {}", e));
+                }
+            }
         }
         "become_kol" => {
             let svc =  MetaPowerMatrixBatteryService::new(call_params.id.clone());
-            match serde_json::from_str::<BecomeKolRequest>(&args){
+            match serde_json::from_str::<BecomeKolRequest>(&call_params.arg){
                 Ok(request) => {
                     match svc.become_kol(request).await{
                         Ok(response) => {
@@ -251,17 +258,17 @@ pub async fn do_battery_service(args: String) -> String{
                         }
                         Err(e) => {
                             ic_cdk::trap(&e.to_string());
-                        }                        
+                        }
                     }
                 }
                 Err(e) => {
-                    ic_cdk::trap(&format!("become_kol error: {}/{}", e, args));
+                    ic_cdk::trap(&format!("become_kol error: {}/{}", e, call_params.arg));
                 }
             }
         }
         "request_join_kol_room" => {
             let svc =  MetaPowerMatrixBatteryService::new(call_params.id.clone());
-            match serde_json::from_str::<JoinKolRoomRequest>(&args){
+            match serde_json::from_str::<JoinKolRoomRequest>(&call_params.arg){
                 Ok(request) => {
                     if let Err(e) = svc.request_join_kol_room(request).await{
                         ic_cdk::trap(&e.to_string());
