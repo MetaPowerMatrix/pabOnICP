@@ -914,7 +914,7 @@ impl MetaPowerMatrixBatteryService {
     ) -> std::result::Result<SimpleResponse, Error> {
         match BSCSvcClient::default().bsc_proxy_get::<String, DataResponse>(&format!("/api/kol/query/staking/{}", request.from), None).await{
             Ok(resp) => {
-                if resp.code != "200" && (resp.content.parse::<u64>().unwrap_or(0) < 10000) {
+                if resp.code != "200" && (resp.content.parse::<u64>().unwrap_or(0) < 10) {
                     return Err(anyhow!("{}: {}", resp.code, resp.content));
                 }
             }

@@ -51,8 +51,8 @@ pub async fn send_http_get_request<T: Serialize>(host: String, path: String, mod
         method: HttpMethod::GET,
         body: None,               //optional for request
         max_response_bytes: Some(4096), //optional for request
-        // transform: None,          //optional for request
-        transform: Some(TransformContext::from_name("transform".to_string(), serde_json::to_vec(&context).unwrap())),
+        transform: None,          //optional for request
+        // transform: Some(TransformContext::from_name("transform".to_string(), serde_json::to_vec(&context).unwrap())),
         headers: request_headers,
     };
 
