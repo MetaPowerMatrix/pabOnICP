@@ -218,7 +218,12 @@ pub async fn talk(id: String, token: String, message: String, subject: String, p
 pub async fn do_battery_service(args: String) -> String{
     _must_initialized();
 
-    let call_params = serde_json::from_str::<BatterCallParams>(&args).unwrap_or_default();
+    let call_params = match serde_json::from_str::<BatterCallParams>(&args){
+        Ok(params) => params,
+        Err(e) => {
+            ic_cdk::trap(&format!("parse call params error: {}", e));
+        }
+    };
 
     // _auth_battery(call_params.id.clone(), call_params.token.clone(), call_params.sn).await;
 
