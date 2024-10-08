@@ -174,7 +174,7 @@ impl MetaPowerMatrixControllerService {
             match call(callee, "request_all_patos", ()).await {
                 Ok(response) => response,
                 Err((code, msg)) => {
-                    return Err(format!("request_all_patos失败: {}: {}", code as u8, msg))
+                    return Err(format!("request_hot_ai: {}: {}", code as u8, msg))
                 }
             };
 

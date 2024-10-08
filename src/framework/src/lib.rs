@@ -422,7 +422,8 @@ pub struct ImageContextRequest {
 
 #[derive(Deserialize, CandidType, Serialize, Debug)]
 pub struct BecomeKolRequest {
-    pub key: String,
+    pub id: String,
+    pub from: String,
 }
 
 #[derive(Deserialize, CandidType, Serialize, Debug)]

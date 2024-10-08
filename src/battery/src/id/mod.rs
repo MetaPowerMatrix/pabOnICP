@@ -912,7 +912,7 @@ impl MetaPowerMatrixBatteryService {
         &self,
         request: BecomeKolRequest,
     ) -> std::result::Result<SimpleResponse, Error> {
-        match BSCSvcClient::default().bsc_proxy_get::<String, DataResponse>(&format!("/api/kol/query/staking/{}", request.key), None).await{
+        match BSCSvcClient::default().bsc_proxy_get::<String, DataResponse>(&format!("/api/kol/query/staking/{}", request.from), None).await{
             Ok(resp) => {
                 if resp.code != "200" && (resp.content.parse::<u64>().unwrap_or(0) < 10000) {
                     return Err(anyhow!("{}: {}", resp.code, resp.content));
@@ -927,7 +927,7 @@ impl MetaPowerMatrixBatteryService {
         let (_,): ((),) = match call(
             callee,
             "request_kol_registration",
-            (request.key.clone(),),
+            (request.id.clone(),),
         )
         .await
         {
@@ -938,7 +938,7 @@ impl MetaPowerMatrixBatteryService {
         let (token_resp,): (SimpleResponse,) = match call(
             callee,
             "request_pato_kol_token",
-            (request.key,),
+            (request.id,),
         ).await
         {
             Ok(response) => response,
