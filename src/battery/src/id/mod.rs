@@ -1131,6 +1131,10 @@ impl MetaPowerMatrixBatteryService {
                                 });
                             }
                             Err(e) => {
+                                BATTERY_COVER.with(|avatar| {
+                                    let mut avatar = avatar.borrow_mut();
+                                    avatar.insert(id.clone(), xfiles_link_mock);
+                                });
                                 // return Err(e);
                             }
                         }
@@ -1161,6 +1165,10 @@ impl MetaPowerMatrixBatteryService {
                                 });
                             }
                             Err(e) => {
+                                BATTERY_AVATAR.with(|avatar| {
+                                    let mut avatar = avatar.borrow_mut();
+                                    avatar.insert(id, xfiles_link_mock);
+                                });
                                 // return Err(e);
                             }
                         }
