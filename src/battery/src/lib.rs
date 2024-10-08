@@ -255,7 +255,7 @@ pub async fn do_battery_service(args: String) -> String{
                     }
                 }
                 Err(e) => {
-                    ic_cdk::trap(&format!("become_kol error: {}", e));
+                    ic_cdk::trap(&format!("become_kol error: {}/{}", e, args));
                 }
             }
         }
