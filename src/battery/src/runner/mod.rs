@@ -1,35 +1,22 @@
 #![allow(clippy::too_many_arguments)]
 
 use candid::Principal;
-use ic_cdk::call;
 use metapower_framework::dao::http::LLMSvcClient;
-use metapower_framework::{AnswerReply, MessageRequest, SnResponse};
 use metapower_framework::{
-    dao::personality::Persona, ensure_directory_exists, get_event_subjects, get_now_date_str, get_now_secs, log, publish_battery_actions, read_and_writeback_json_file, ActionInfo, BetterTalkRequest, ChatMessage, EmptyRequest, KnowLedgeInfo, PatoLocation, QuestionRequest, AGENT_GRPC_REST_SERVER, AI_MATRIX_DIR, AI_PATO_DIR, BATTERY_GRPC_REST_SERVER, BATTERY_GRPC_SERVER_PORT_START, HAVEAREST, LLMCHAT_GRPC_REST_SERVER, MATRIX_GRPC_REST_SERVER, SNAP, TICK, XFILES_SERVER
+    dao::personality::Persona, ensure_directory_exists, get_event_subjects, get_now_date_str,
+    get_now_secs, log, publish_battery_actions, read_and_writeback_json_file, ActionInfo, ChatMessage, EmptyRequest, QuestionRequest, AI_MATRIX_DIR,
+    AI_PATO_DIR, BATTERY_GRPC_REST_SERVER, BATTERY_GRPC_SERVER_PORT_START,
 };
+use metapower_framework::{AnswerReply, MessageRequest};
 use std::fs::File;
-use std::io::prelude::*;
-use std::io::Write;
-use std::{
-    collections::{HashMap, HashSet},
-    fs::OpenOptions,
-    io::{self},
-};
+use std::collections::HashMap;
 
-use crate::AGENT_CALLEE;
-use crate::{
-    id::identity::{ask_pato_knowledges, ask_pato_name},
-    reverie::{
+use crate::reverie::{
         generate_prompt,
-        memory::{
-            get_chat_his_by_session, get_kol_messages,
-            get_kol_messages_summary, save_kol_chat_message,
-        },
-    },
-};
+        memory::get_chat_his_by_session,
+    };
 
 const MAX_ROUND: u64 = 8;
-const MAX_PRO_ROUND: u64 = 20;
 const MAX_CHANCE_TALK_PER_DAY: i32 = 0;
 const MAX_TALK_PER_PLACE: i32 = 1;
 
@@ -74,7 +61,10 @@ impl BatteryRunner {
             subject,
             prompt,
         };
-        match client.call_llm_proxy::<MessageRequest, AnswerReply>("talk", request).await {
+        match client
+            .call_llm_proxy::<MessageRequest, AnswerReply>("talk", request)
+            .await
+        {
             Ok(response) => {
                 return Some(response.answer);
             }
@@ -209,11 +199,12 @@ impl BatteryRunner {
             question: String::default(),
         };
         // println!("chat_request: {:?}", chat_request);
-        match client.call_llm_proxy::<QuestionRequest, AnswerReply>("talk", chat_request).await {
+        match client
+            .call_llm_proxy::<QuestionRequest, AnswerReply>("talk", chat_request)
+            .await
+        {
             Ok(answer) => {
-                if answer.answer.contains("yes")
-                    || answer.answer.contains("Yes")
-                {
+                if answer.answer.contains("yes") || answer.answer.contains("Yes") {
                     return (true, subject);
                 }
             }
@@ -303,7 +294,10 @@ impl BatteryRunner {
             persona: prompt,
         };
         // println!("chat_request: {:?}", chat_request);
-        match client.call_llm_proxy::<QuestionRequest, AnswerReply>("talk", chat_request).await {
+        match client
+            .call_llm_proxy::<QuestionRequest, AnswerReply>("talk", chat_request)
+            .await
+        {
             Ok(answer) => {
                 let mut llm_answer = answer.answer.clone();
                 let second_part = llm_answer.split(':').collect::<Vec<&str>>();
@@ -330,7 +324,7 @@ impl BatteryRunner {
         sn: i64,
         subject: &String,
         input: String,
-        his: Vec<String>,
+        his: Vec<ChatMessage>,
     ) -> Option<String> {
         let mut curr_input = vec![];
         let prompt_lib_file = format!("{}/template/plan/iterative_convo_v1.txt", AI_MATRIX_DIR);
@@ -369,7 +363,7 @@ impl BatteryRunner {
         curr_input.push(format!("they have talked at {} for a while.", place)); //5
         curr_input.push(name.to_owned()); //6
         curr_input.push(l_name.to_owned()); //7
-        curr_input.push(his.join("\n")); //8
+        curr_input.push("".to_string()); //8
         curr_input.push(name.to_owned()); //9
         curr_input.push(l_name.to_owned()); //10
         curr_input.push(name.to_owned()); //11
@@ -383,16 +377,16 @@ impl BatteryRunner {
         self.talk_to_pato(sn, prompt, subject.to_owned(), input)
             .await
     }
-    async fn get_name_events_subjects_for_pato(
-        &self,
-    ) -> (String, Vec<(String, String)>) {
+    async fn get_name_events_subjects_for_pato(&self) -> (String, Vec<(String, String)>) {
         let client = LLMSvcClient::default();
 
         let name_request = EmptyRequest {};
-        if let Ok(name_resp) = client.call_llm_proxy::<EmptyRequest, String>("request_pato_name", name_request).await {
+        if let Ok(name_resp) = client
+            .call_llm_proxy::<EmptyRequest, String>("request_pato_name", name_request)
+            .await
+        {
             (name_resp, vec![])
-        }
-        else {
+        } else {
             (String::default(), vec![])
         }
     }
@@ -433,241 +427,6 @@ impl BatteryRunner {
 
         None
     }
-    fn get_pato_call(&self) -> Vec<String> {
-        let callfilename = format!("{}/{}/db/call.txt", AI_PATO_DIR, self.id);
-        let mut callee: Vec<String> = vec![];
-        let mut lines: Vec<String> = vec![];
-        if let Ok(file) = File::open(callfilename.clone()) {
-            let reader = io::BufReader::new(file);
-            for line in reader.lines().map_while(Result::ok) {
-                if line.is_empty() {
-                    continue;
-                }
-                lines.push(line);
-            }
-        }
-        // log!("get_pato_call lines: {:?}", lines);
-
-        if !lines.is_empty() {
-            for line in lines.iter_mut() {
-                let l = line.clone();
-                let st = l.split('#').collect::<Vec<&str>>();
-                if st.len() > 2 && st[2] == "waiting" {
-                    *line = format!("{}#{}#done", st[0], st[1]);
-                    callee.push(st[0].to_string() + "#" + st[1]);
-                }
-            }
-        }
-        // log!("get_pato_call callee: {:?}", lines);
-
-        let mut set = HashSet::new();
-        let mut result = Vec::new();
-        for item in callee {
-            if set.insert(item.clone()) {
-                result.push(item.clone());
-            }
-        }
-        callee = result;
-
-        match OpenOptions::new()
-            .write(true)
-            .create(true)
-            .truncate(true)
-            .open(callfilename)
-        {
-            Ok(mut file) => {
-                let _ = writeln!(file, "{}", lines.join("\n"));
-            }
-            Err(e) => {
-                log!("get_pato_call write back to file error: {}", e);
-            }
-        }
-
-        callee
-    }
-
-    async fn kol_follower_conversation(
-        &self,
-        kol_id: String,
-        follower_id: String,
-        last_message: String,
-        is_ask_kol: bool,
-    ) -> String {
-        let mut curr_input: Vec<String> = vec![];
-        let mut reply = String::default();
-        let kol_name = ask_pato_name(kol_id.clone()).await.unwrap_or_default();
-        let my_name = ask_pato_name(follower_id.clone()).await.unwrap_or_default();
-        let session_messages: Vec<ChatMessage> =
-            get_kol_messages(follower_id.clone(), kol_id.clone());
-        let raw_messages = session_messages
-            .iter()
-            .map(|m| my_name.clone() + ":" + &m.question + "\n" + &kol_name + ":" + &m.answer)
-            .collect::<Vec<String>>();
-        let summary_content = raw_messages.join("\n");
-        let summary = get_kol_messages_summary(summary_content.clone())
-            .await
-            .unwrap_or_default();
-        let filtered_messages = raw_messages
-            .iter()
-            .filter(|m| m.len() < 800)
-            .map(|m| m.to_owned())
-            .collect::<Vec<String>>();
-
-        curr_input.push(my_name.clone()); //0
-        curr_input.push(kol_name.clone()); //1
-        curr_input.push(my_name.clone()); //2
-        curr_input.push(kol_name.clone()); //3
-        curr_input.push(summary); //4
-        curr_input.push(filtered_messages.join("\n")); //5
-        curr_input.push(kol_name.clone()); //6
-        curr_input.push(my_name.clone()); //7
-        curr_input.push(last_message.clone()); //8
-        curr_input.push(kol_name.clone()); //9
-        curr_input.push(my_name.clone()); //10
-        curr_input.push(kol_name.clone()); //11
-        curr_input.push(kol_name.clone()); //12
-
-        let prompt_lib_file = if is_ask_kol {
-            format!("{}/template/plan/agent_chat_pro.txt", AI_MATRIX_DIR)
-        } else {
-            curr_input.push(my_name.clone()); //13
-            curr_input.push(my_name.clone()); //14
-            format!("{}/template/plan/agent_chat_follower.txt", AI_MATRIX_DIR)
-        };
-        let prompt = generate_prompt(curr_input, &prompt_lib_file);
-        // log!("kol_follower_chat_prompt: {}", prompt);
-
-        let db_path = if is_ask_kol {
-            format!("{}/{}/db/knowledge_chromadb", AI_PATO_DIR, kol_id)
-        } else {
-            format!("{}/{}/db/knowledge_chromadb", AI_PATO_DIR, follower_id)
-        };
-        let knowledges = if is_ask_kol {
-            let ks = ask_pato_knowledges(kol_id.clone()).await;
-            let filtered_knowledges = ks
-                .iter()
-                .filter(|k| k.owner == kol_id)
-                .map(|k| k.to_owned())
-                .collect::<Vec<KnowLedgeInfo>>();
-            filtered_knowledges
-        } else {
-            let ks = ask_pato_knowledges(follower_id.clone()).await;
-            let filtered_knowledges = ks
-                .iter()
-                .filter(|k| k.owner == follower_id)
-                .map(|k| k.to_owned())
-                .collect::<Vec<KnowLedgeInfo>>();
-            filtered_knowledges
-        };
-
-        let client = LLMSvcClient::default();
-        let chat_request = BetterTalkRequest {
-            question: last_message.clone(),
-            prompt,
-            collection_name: knowledges
-                .iter()
-                .map(|k| "sig".to_string() + &k.sig)
-                .collect::<Vec<String>>(),
-            db_path,
-        };
-        // println!("chat_request: {:?}", chat_request);
-        match client.call_llm_proxy::<BetterTalkRequest, AnswerReply>("talk_better", chat_request).await {
-            Ok(answer) => {
-                reply = answer.answer.clone();
-            }
-            Err(e) => {
-                log!("Call KOL AI is something wrong: {}", e);
-            }
-        }
-        reply
-    }
-    async fn call_pato(&self, want_calls: Vec<String>) {
-        let mut listeners: Vec<(String, i64)> = vec![];
-        let mut callees: Vec<String> = vec![];
-        let mut topics: HashMap<String, String> = HashMap::new();
-
-        for call in want_calls {
-            let info = call.split('#').collect::<Vec<&str>>();
-            topics
-                .entry(info[0].to_string())
-                .and_modify(|t| *t = info[1].to_string())
-                .or_insert(info[1].to_string());
-            callees.push(info[0].to_string());
-        }
-        
-        let callee = AGENT_CALLEE.with(|callee| *callee.borrow().as_ref().unwrap());
-        let (sn_resp,): (SnResponse,) =
-            match call(callee, "request_pato_sn", (callees,)).await {
-                Ok(response) => response,
-                Err((code, msg)) => {
-                    println!("become_kol失败: {}: {}", code as u8, msg);
-                    (SnResponse::default(),)
-                },
-            };
-    
-        let resp = sn_resp.pato_sn_id;
-        for pato in resp {
-            listeners.push((pato.id.clone(), pato.sn.parse::<i64>().unwrap_or(0)));
-        }
-
-        log!("call listeners: {:?}", listeners);
-
-        for l in listeners.iter() {
-            if l.0 == self.id {
-                continue;
-            }
-            let mut last_message = topics.get(&l.0).unwrap_or(&"".to_string()).clone();
-
-            let kol_id = l.0.clone();
-            for round in 0..MAX_PRO_ROUND {
-                if last_message.is_empty() {
-                    last_message = "你好".to_string() + ",我们继续聊吧";
-                }
-                if round % 2 == 0 {
-                    let reply = self
-                        .kol_follower_conversation(
-                            kol_id.clone(),
-                            self.id.clone(),
-                            last_message.clone(),
-                            true,
-                        )
-                        .await;
-                    let message = ChatMessage {
-                        created_at: get_now_secs() as i64,
-                        session: String::default(),
-                        place: "online".to_string(),
-                        sender: self.id.clone(),
-                        receiver: kol_id.clone(),
-                        question: last_message.clone(),
-                        answer: reply.clone(),
-                        sender_role: "follower".to_string(),
-                        subject: "kol".to_string(),
-                    };
-                    save_kol_chat_message(
-                        self.id.clone(),
-                        kol_id.clone(),
-                        &mut vec![message],
-                        true,
-                    );
-                    last_message = reply;
-                } else {
-                    last_message = self
-                        .kol_follower_conversation(
-                            kol_id.clone(),
-                            self.id.clone(),
-                            last_message.clone(),
-                            false,
-                        )
-                        .await;
-                }
-            }
-
-            publish_battery_actions(
-                self.id.clone(),
-                "和专家的聊天愉快地结束了。真是受益匪浅呢".to_string(),
-            );
-        }
-    }
 
     pub async fn run_loop(&mut self) {
         log!("battery runner");
@@ -691,13 +450,6 @@ impl BatteryRunner {
                 continue;
             }
 
-            let want_call = self.get_pato_call();
-            if !want_call.is_empty() {
-                publish_battery_actions(self.id.clone(), "联系专家聊一聊吧!".to_string());
-                self.call_pato(want_call.clone()).await;
-                continue;
-            }
-
             if *talk_records.get(&get_now_date_str()).unwrap_or(&0) >= MAX_CHANCE_TALK_PER_DAY {
                 publish_battery_actions(
                     self.id.clone(),
@@ -711,8 +463,14 @@ impl BatteryRunner {
             }
 
             let actions = vec![
-                ActionInfo{ place: "cafe".to_string(), action: "talk".to_string() },
-                ActionInfo{ place: "mesuem".to_string(), action: "learn".to_string() }
+                ActionInfo {
+                    place: "cafe".to_string(),
+                    action: "talk".to_string(),
+                },
+                ActionInfo {
+                    place: "mesuem".to_string(),
+                    action: "learn".to_string(),
+                },
             ];
 
             publish_battery_actions(self.id.clone(), "继续在小镇里转一转吧!".to_string());
@@ -733,10 +491,7 @@ impl BatteryRunner {
                 let place = action.place.clone();
                 let mut talked_listeners = 0;
                 if !listeners.is_empty() {
-                    publish_battery_actions(
-                        self.id.clone(),
-                        "遇到了很多有趣的人呢".to_string(),
-                    );
+                    publish_battery_actions(self.id.clone(), "遇到了很多有趣的人呢".to_string());
                 }
                 for l in listeners {
                     if talked_listeners >= MAX_TALK_PER_PLACE {
@@ -747,12 +502,9 @@ impl BatteryRunner {
                     }
                     let mut first_message = None;
 
-                    let (my_name, my_events) = self
-                        .get_name_events_subjects_for_pato()
-                        .await;
-                    let (mut listener_name, listener_events) = self
-                        .get_name_events_subjects_for_pato()
-                        .await;
+                    let (my_name, my_events) = self.get_name_events_subjects_for_pato().await;
+                    let (mut listener_name, listener_events) =
+                        self.get_name_events_subjects_for_pato().await;
                     let my_iss = self.get_pato_iss().unwrap_or_default();
                     let l_iss = self.get_other_pato_iss(l.0.clone()).unwrap_or_default();
 
@@ -791,36 +543,25 @@ impl BatteryRunner {
                         let mut will_talks = MAX_ROUND;
                         let mut round = 0;
                         while round <= will_talks {
-                            publish_battery_actions(
-                                l.0.clone(),
-                                format!("{}正在和你聊天", my_name.clone()),
-                            );
                             log!("round: {}", round);
-                            let (mut his, last_sender) = get_chat_his_by_session(
-                                session.to_string(),
+                            let his = get_chat_his_by_session(
                                 self.id.clone(),
-                                my_name.to_owned(),
-                                listener_name.to_owned(),
-                            );
+                                l.0.clone(),
+                                session.to_string(),
+                            )
+                            .unwrap_or_default();
                             if round == will_talks && !his.is_empty() {
-                                // log!("last sender is : {}", last_sender);
-                                if last_sender == self.id {
-                                    let last_words = his.last().unwrap();
-                                    // log!("last words is : {}", last_sender);
-                                    match last_words.as_str() {
-                                        // should use llm to determine whether sender want byebye
-                                        "see you later" | "byebye" | "bye" | "goodbye" | "再见"
-                                        | "see you" | "拜拜" => {
-                                            break;
-                                        }
-                                        _ => {
-                                            will_talks += 4;
-                                            his = his[..his.len() - 1].to_vec();
-                                        }
+                                let last_words = his.last().unwrap();
+                                // log!("last words is : {}", last_sender);
+                                match last_words.question.as_str() {
+                                    // should use llm to determine whether sender want byebye
+                                    "see you later" | "byebye" | "bye" | "goodbye" | "再见"
+                                    | "see you" | "拜拜" => {
+                                        break;
                                     }
-                                } else {
-                                    log!("not continue");
-                                    break;
+                                    _ => {
+                                        will_talks += 4;
+                                    }
                                 }
                             }
                             if round == 0 {
@@ -912,10 +653,7 @@ impl BatteryRunner {
                             format!("和{}聊了很久了，找别人聊聊吧", listener_name.clone()),
                         );
                     } else {
-                        publish_battery_actions(
-                            self.id.clone(),
-                            "好像没有什么好聊的".to_string(),
-                        );
+                        publish_battery_actions(self.id.clone(), "好像没有什么好聊的".to_string());
                     }
                 }
                 publish_battery_actions(

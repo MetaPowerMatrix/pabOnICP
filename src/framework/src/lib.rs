@@ -602,6 +602,7 @@ pub struct ContinueRequest {
 
 #[derive(Deserialize, CandidType, Serialize, Debug)]
 pub struct InstructRequest {
+    pub session: String,
     pub reply_to: String,
     pub message: String,
     pub kol: String,
@@ -674,7 +675,8 @@ pub struct PatoIssEditRequest {
 #[derive(Deserialize, CandidType, Serialize, Debug)]
 pub struct GetMessageRequest {
     pub id: String,
-    pub date: String,
+    pub kol: String,
+    pub session: String,
 }
 
 #[derive(Deserialize, CandidType, Serialize, Debug)]
@@ -686,8 +688,10 @@ pub struct GetProMessageRequest {
 
 #[derive(Deserialize, CandidType, Serialize, Debug)]
 pub struct ArchiveMessageRequest {
+    pub id: String,
+    pub kol: String,
     pub session: String,
-    pub date: String,
+    pub messages: String,
 }
 
 #[derive(Deserialize, CandidType, Serialize, Debug)]

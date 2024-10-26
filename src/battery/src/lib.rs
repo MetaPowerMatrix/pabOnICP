@@ -9,6 +9,7 @@ use ic_stable_structures::{memory_manager::{MemoryId, MemoryManager, VirtualMemo
 use id::MetaPowerMatrixBatteryService;
 use metapower_framework::{log, BecomeKolRequest, JoinKolRoomRequest, MessageRequest, SubmitTagsRequest};
 use serde::{Deserialize, Serialize};
+use stable_fs::{fs::FileSystem, storage::stable::StableStorage};
 
 #[derive(Deserialize, Debug, Default, Serialize)]
 struct BatterCallParams{
@@ -65,6 +66,16 @@ thread_local! {
         MEMORY_MANAGER.with(|mm| {
             RefCell::new(StableBTreeMap::init(mm.borrow().get(BATTERY_CHARACTER_MEM_ID)))
         });
+
+    static FS: RefCell<FileSystem> = {
+        MEMORY_MANAGER.with(|m| {
+            let memory_manager = m.borrow();
+            let storage = StableStorage::new_with_memory_manager(&memory_manager, 200..210u8);
+            RefCell::new(
+                FileSystem::new(Box::new(storage)).unwrap()
+            )
+        })
+    };
 }
 
 fn _only_owner() {

@@ -1,6 +1,7 @@
 pub mod identity;
 
 use anyhow::{anyhow, Error};
+use ic_cdk::api::call::reject_message;
 use ic_cdk::call;
 use metapower_framework::dao::crawler::download_image;
 use metapower_framework::dao::http::{BSCSvcClient, LLMSvcClient};
@@ -15,8 +16,7 @@ use metapower_framework::{
     ImageGenPromptRequest, ImageGenRequest, ImageGenResponse, ImagePromptRequest, InstructRequest,
     InstructResponse, JoinKolRoomRequest, KnowLedgeInfo,
     KnowLedgesRequest, KnowLedgesResponse, LlmEmptyResponse,
-    MessageRequest, NameResponse,
-    PatoNameResponse, QueryEmbeddingRequest, QueryEmbeddingResponse, QueryEmbeddingsRequest,
+    MessageRequest, QueryEmbeddingRequest, QueryEmbeddingResponse, QueryEmbeddingsRequest,
     QueryEmbeddingsResponse, QuestionRequest, SessionMessages, ShareKnowLedgesRequest,
     SomeDocs, SubjectResponse, SubmitTagsRequest, SubmitTagsResponse, SummaryAndEmbeddingRequest,
     SummaryAndEmbeddingResponse, SummarytResponse, SvcImageDescriptionRequest,
@@ -25,7 +25,7 @@ use metapower_framework::{
 };
 use std::collections::HashSet;
 use std::fs::{File, OpenOptions};
-use std::io::{BufRead, BufReader, Read, Write};
+use std::io::{BufRead, Read, Write};
 use std::path::PathBuf;
 use std::{fs, io};
 use tempfile::NamedTempFile;
@@ -33,8 +33,7 @@ use tempfile::NamedTempFile;
 use crate::id::identity::{ask_pato_knowledges, ask_pato_name};
 use crate::reverie::generate_prompt;
 use crate::reverie::memory::{
-    find_chat_session_dirs, get_kol_messages, get_kol_messages_summary, get_pato_knowledges,
-    save_kol_chat_message,
+    archive_session_chat_message, get_chat_his_by_session, get_chat_messages_summary, get_pato_knowledges, save_session_chat_message
 };
 use crate::{AGENT_CALLEE, BATTERY_AVATAR, BATTERY_CHARACTER, BATTERY_COVER, BATTERY_TAGS};
 
@@ -116,26 +115,6 @@ impl MetaPowerMatrixBatteryService {
 
         None
     }
-    pub fn notify_gamers(&self, room_id: String, topic: String, message: String) {
-        let game_room_path = format!("{}/{}/db/game_room/{}", AI_PATO_DIR, self.id, room_id);
-        if let Ok(file) = OpenOptions::new()
-            .read(true)
-            .open(format!("{}/gamer.txt", game_room_path))
-        {
-            let reader = io::BufReader::new(file);
-            for line in reader.lines().map_while(Result::ok) {
-                if let Some(gamer_id) = line
-                    .split('#')
-                    .map(|g| g.to_owned())
-                    .collect::<Vec<String>>()
-                    .first()
-                {
-                    let message = format!("{}: {}", topic, message);
-                    publish_battery_actions(room_id.clone() + "/" + gamer_id, message);
-                }
-            }
-        }
-    }
     pub async fn talk(&self, request: MessageRequest) -> std::result::Result<TalkResponse, Error> {
         let chat_content = request;
         let input = chat_content.message.clone();
@@ -177,118 +156,17 @@ impl MetaPowerMatrixBatteryService {
         &self,
         request: GetMessageRequest,
     ) -> std::result::Result<GetMessageResponse, Error> {
-        let mut session_messages: Vec<SessionMessages> = vec![];
-        let chat_sessions = find_chat_session_dirs(self.id.clone(), request.date.clone());
-        // log!("chat_sessions: {:?}", chat_sessions);
-        for session_dir in chat_sessions {
-            let message_file = session_dir.join("message.json");
-            let summary_file = session_dir.join("summary.txt");
-            let session = session_dir
-                .file_name()
-                .unwrap()
-                .to_str()
-                .unwrap()
-                .to_string();
-            let mut ids: Vec<String> = vec![];
-
-            if !message_file.exists() {
-                continue;
-            }
-
-            if let Ok(file) = File::open(message_file.clone()) {
-                match serde_json::from_reader::<File, Vec<ChatMessage>>(file) {
-                    Ok(mut messages) => {
-                        for message in messages.iter() {
-                            if ids.contains(&message.sender) {
-                                continue;
-                            }
-                            if ids.contains(&message.receiver) {
-                                continue;
-                            }
-                            ids.push(message.sender.clone());
-                            ids.push(message.receiver.clone());
-                        }
-                        let callee =
-                            AGENT_CALLEE.with(|callee| *callee.borrow().as_ref().unwrap());
-                        let (name_pro_resp,): (NameResponse,) =
-                            match call(callee, "request_pato_by_ids", (ids.clone(),)).await {
-                                Ok(response) => response,
-                                Err((code, msg)) => {
-                                    return Err(anyhow!(
-                                        "request_pato_by_ids 失败: {}: {}",
-                                        code as u8,
-                                        msg
-                                    ))
-                                }
-                            };
-                        let resp = name_pro_resp.name_pros;
-                        // println!("resp: {:?}", resp);
-                        for message in messages.iter_mut() {
-                            for name_pro in resp.iter() {
-                                // println!("name_pro: {:?}, message: {}-{}", name_pro, message.sender, message.receiver);
-                                if name_pro.id == message.sender {
-                                    message.sender =
-                                        format!("{}({})", name_pro.name, name_pro.pros.join(","));
-                                }
-                                if name_pro.id == message.receiver {
-                                    message.receiver =
-                                        format!("{}({})", name_pro.name, name_pro.pros.join(","));
-                                }
-                            }
-                        }
-                        let his: Vec<String> = messages
-                            .iter()
-                            .map(|m| {
-                                let mut receiver = m.receiver.clone();
-                                if m.sender == m.receiver {
-                                    receiver = m.receiver.clone() + "#2";
-                                }
-                                format!(
-                                    "{}: {} \n {}: {}",
-                                    m.sender, m.question, receiver, m.answer
-                                )
-                            })
-                            .collect();
-                        let summary = self
-                            .get_session_messages_summary(summary_file.clone(), his.join("\n"))
-                            .await;
-                        // log!("summary: {:?}", summary);
-                        let session_message = SessionMessages {
-                            session,
-                            summary: summary.unwrap_or_default(),
-                            messages,
-                        };
-                        session_messages.push(session_message);
-                    }
-                    Err(e) => {
-                        log!("read chat messages from file error: {}", e);
-                    }
-                }
-            } else {
-                log!("error read {:?}", message_file);
-            }
-        }
-        let content = serde_json::to_string(&session_messages).unwrap_or_default();
+        let messages = get_chat_his_by_session(request.kol, request.id, request.session.clone())?;
+        let summary = get_chat_messages_summary(serde_json::to_string(&messages).unwrap_or_default()).await?;
+        // log!("summary: {:?}", summary);
+        let session_message = SessionMessages {
+            summary,
+            messages,
+            session: request.session,
+        };
+        let content = serde_json::to_string(&session_message).unwrap_or_default();
 
         let response = GetMessageResponse { content };
-
-        Ok(response)
-    }
-
-    pub fn request_pato_name(
-        &self,
-        _request: EmptyRequest,
-    ) -> std::result::Result<PatoNameResponse, Error> {
-        let mut name = String::default();
-        let name_file = format!("{}/{}/db/name.txt", AI_PATO_DIR, self.id);
-        if let Ok(file) = File::open(name_file) {
-            let reader = BufReader::new(file);
-            if let Some(Ok(last_line)) = reader.lines().last() {
-                name = last_line;
-            }
-        }
-
-        let response = PatoNameResponse { name };
 
         Ok(response)
     }
@@ -296,28 +174,10 @@ impl MetaPowerMatrixBatteryService {
     pub fn archive_chat_messages(
         &self,
         request: ArchiveMessageRequest,
-    ) -> std::result::Result<EmptyRequest, Error> {
-        let session = request.session.clone();
-        let date = request.date.clone();
+    ) -> std::result::Result<(), Error> {
+        archive_session_chat_message(request.id, request.kol, request.session, request.messages);
 
-        let chat_session_path = format!("{}/{}/db/{}/{}", AI_PATO_DIR, self.id, date, session);
-
-        let archive_session_path = format!(
-            "{}/{}/db/{}/{}/archive",
-            AI_PATO_DIR, self.id, date, session
-        );
-
-        let _ = ensure_directory_exists(&archive_session_path);
-        // Copy the file to the new location
-        fs::copy(
-            chat_session_path.clone() + "/message.json",
-            archive_session_path + "/message.json",
-        )?;
-
-        // Delete the original file
-        let _ = fs::remove_file(chat_session_path + "/message.json");
-
-        Ok(EmptyRequest {})
+        Ok(())
     }
     pub async fn request_instruct(
         &self,
@@ -331,14 +191,14 @@ impl MetaPowerMatrixBatteryService {
 
         let kol_name = ask_pato_name(kol_id.clone()).await.unwrap_or_default();
         let my_name = ask_pato_name(self.id.clone()).await.unwrap_or_default();
-        let session_messages: Vec<ChatMessage> =
-            get_kol_messages(request.reply_to.clone(), request.kol.clone());
+        let mut session_messages: Vec<ChatMessage> =
+            get_chat_his_by_session(request.reply_to.clone(), request.kol.clone(), request.session.clone())?;
         let raw_messages = session_messages
             .iter()
             .map(|m| my_name.clone() + ":" + &m.question + "\n" + &kol_name + ":" + &m.answer)
             .collect::<Vec<String>>();
         let summary_content = raw_messages.join("\n");
-        let summary = get_kol_messages_summary(summary_content.clone())
+        let summary = get_chat_messages_summary(summary_content.clone())
             .await
             .unwrap_or_default();
         let filtered_messages = raw_messages
@@ -405,11 +265,12 @@ impl MetaPowerMatrixBatteryService {
                     sender_role: "user".to_string(),
                     subject: "consultant".to_string(),
                 };
-                save_kol_chat_message(
+                session_messages.push(message);
+                save_session_chat_message(
                     request.reply_to.clone(),
                     kol_id.clone(),
-                    &mut vec![message],
-                    true,
+                    request.session,
+                    session_messages
                 );
 
                 let tts_request = TextToSpeechRequest {
@@ -633,8 +494,7 @@ impl MetaPowerMatrixBatteryService {
                 .call_llm_proxy::<EventTopic, SubjectResponse>(
                     "got_topic_subject",
                     topic_subject_request,
-                )
-                .await
+                ).await
             {
                 my_subjects.push(response.subject.clone());
             }
