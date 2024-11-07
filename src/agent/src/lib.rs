@@ -4,11 +4,15 @@ pub mod smith;
 use candid::Principal;
 use ic_cdk::{api::caller, id};
 use ic_stable_structures::memory_manager::{MemoryId, MemoryManager as MM, VirtualMemory};
-use ic_stable_structures::{DefaultMemoryImpl, RestrictedMemory, StableBTreeMap, StableLog};
-use metapower_framework::{
-    get_now_date_str, get_now_secs, AirdropRequest, ChangeBalanceRequest, EmptyRequest, FollowKolRequest, InjectHumanVoiceRequest, KolListResponse, KolRegistrationRequest, KolRelations, NameRequest, NameResponse, PatoInfo, PatoInfoResponse, PopulationRegistrationRequest, RoomCreateRequest, RoomCreateResponse, RoomListResponse, SimpleRequest, SimpleResponse, TokenRequest, TokenResponse, TopicChatHisResponse, TopicChatRequest
-};
+use ic_stable_structures::{DefaultMemoryImpl, RestrictedMemory, StableBTreeMap};
 use metapower_framework::prompt::PREDEFINED_TAGS;
+use metapower_framework::{
+    get_now_date_str, get_now_secs, AirdropRequest, ChangeBalanceRequest, FollowKolRequest,
+    InjectHumanVoiceRequest, KolRegistrationRequest, KolRelations, NameRequest, NameResponse,
+    PatoInfo, PatoInfoResponse, PopulationRegistrationRequest, RoomCreateRequest,
+    RoomCreateResponse, RoomListResponse, SimpleRequest, SimpleResponse, TokenRequest,
+    TokenResponse, TopicChatHisResponse, TopicChatRequest,
+};
 use smith::MetaPowerMatrixAgentService;
 use std::cell::RefCell;
 use std::fmt::Write;
@@ -177,7 +181,7 @@ pub fn setup_battery_auth(id: String, token: String) {
 }
 
 #[ic_cdk::update]
-pub async fn refresh_battery_auth(id: String) -> String{
+pub async fn refresh_battery_auth(id: String) -> String {
     let (bytes,): (Vec<u8>,) =
         ic_cdk::api::call::call(Principal::management_canister(), "raw_rand", ())
             .await
@@ -219,7 +223,10 @@ pub async fn get_battery_auth(id: String) -> Option<String> {
 async fn request_pato_info(id: String) -> PatoInfoResponse {
     _must_initialized();
     let request = SimpleRequest { id };
-    match MetaPowerMatrixAgentService::new().request_pato_info(request).await {
+    match MetaPowerMatrixAgentService::new()
+        .request_pato_info(request)
+        .await
+    {
         Ok(response) => response,
         Err(err) => ic_cdk::trap(&err.to_string()),
     }
@@ -236,14 +243,14 @@ fn request_all_patos() -> Vec<PatoInfo> {
 }
 
 #[ic_cdk::query]
-fn request_predefined_tags() -> String{
+fn request_predefined_tags() -> String {
     _must_initialized();
 
     unsafe {
         let tags = USER_DEFINED_TAGS.with(|v| v.borrow().clone());
         if tags.is_empty() {
             PREDEFINED_TAGS.to_string()
-        }else{
+        } else {
             tags
         }
     }
@@ -253,7 +260,7 @@ fn request_predefined_tags() -> String{
 fn set_predefined_tags(tags: String) {
     _must_initialized();
 
-    USER_DEFINED_TAGS.with(move |v|{
+    USER_DEFINED_TAGS.with(move |v| {
         let data = tags;
         *v.borrow_mut() = data;
     });
@@ -420,9 +427,7 @@ async fn request_pato_by_name(name: String) -> Result<NameResponse, String> {
 async fn request_pato_name(id: String) -> String {
     _must_initialized();
 
-    match MetaPowerMatrixAgentService::new()
-        .get_pato_name(id)
-    {
+    match MetaPowerMatrixAgentService::new().get_pato_name(id) {
         Some(response) => response,
         None => ic_cdk::trap("pato name not registered"),
     }

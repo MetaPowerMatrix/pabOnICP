@@ -2,22 +2,21 @@ use anyhow::{anyhow, Error};
 use candid::Principal;
 use ic_stable_structures::memory_manager::{MemoryId, MemoryManager as MM, VirtualMemory};
 use ic_stable_structures::{DefaultMemoryImpl, RestrictedMemory, StableBTreeMap};
+use stable_fs::fs::{FdStat, FileSystem, OpenFlags};
+use stable_fs::storage::stable::StableStorage;
 use std::cell::RefCell;
 use std::fmt::Write;
-use std::vec;
-
 use crate::{
-    CreateRequest, CreateResonse, EmptyResponse, Knowledge, LoginRequest, SharedKnowledgesResponse,
+    CreateRequest, CreateResonse, EmptyResponse, LoginRequest,
     CALLEE,
 };
 use ic_cdk::api::call::call;
 use metapower_framework::dao::sqlite::MetapowerSqlite3;
-use metapower_framework::{AllPatosResponse, PatoInfo, SimpleResponse};
+use metapower_framework::{get_now_secs, PatoInfo, SimpleResponse, MAX_SAVE_BYTES};
 
 type RM = RestrictedMemory<DefaultMemoryImpl>;
 type VM = VirtualMemory<RM>;
 
-const KNOWLEDGES_MEM_ID: MemoryId = MemoryId::new(0);
 const SUMMARY_MEM_ID: MemoryId = MemoryId::new(1);
 const METADATA_PAGES: u64 = 512;
 
@@ -26,14 +25,19 @@ thread_local! {
         MM::init(RM::new(DefaultMemoryImpl::default(), 16..METADATA_PAGES))
         );
 
-    static KNOWLEDGES: RefCell<StableBTreeMap<String, String, VM>> =
-        MEMORY_MANAGER.with(|mm| {
-          RefCell::new(StableBTreeMap::init(mm.borrow().get(KNOWLEDGES_MEM_ID)))
-        });
     static SUMMARY: RefCell<StableBTreeMap<String, String, VM>> =
         MEMORY_MANAGER.with(|mm| {
           RefCell::new(StableBTreeMap::init(mm.borrow().get(SUMMARY_MEM_ID)))
         });
+    static FS: RefCell<FileSystem> = {
+        MEMORY_MANAGER.with(|m| {
+            let memory_manager = m.borrow();
+            let storage = StableStorage::new_with_memory_manager(&memory_manager, 200..210u8);
+            RefCell::new(
+                FileSystem::new(Box::new(storage)).unwrap()
+            )
+        })
+    };
 }
 
 #[derive(Debug, Default)]
@@ -82,16 +86,6 @@ impl MetaPowerMatrixControllerService {
             };
 
         Ok(sn)
-    }
-    fn get_pato_shared_books(&self, id: String) -> Vec<String> {
-        let mut books: Vec<String> = vec![];
-        KNOWLEDGES.with(|item| {
-            for (_, v) in item.borrow().iter() {
-                books.push(v)
-            }
-        });
-
-        books
     }
 
     pub fn request_pato_login(
@@ -150,44 +144,43 @@ impl MetaPowerMatrixControllerService {
         Ok(patos_resp)
     }
 
-    pub async fn request_shared_knowledges(
-        &self,
-    ) -> std::result::Result<SharedKnowledgesResponse, String> {
-        let mut knowledges: Vec<Knowledge> = vec![];
-
-        let callee = CALLEE.with(|callee| *callee.borrow().as_ref().unwrap());
-
-        let (patos_resp,): (AllPatosResponse,) = match call(callee, "request_all_patos", ()).await {
-            Ok(response) => response,
-            Err((code, msg)) => {
-                return Err(format!("request_all_patos失败: {}: {}", code as u8, msg))
+    pub fn save_session_assets(&self, id: String, session: String, file_name: String, data: [u8; MAX_SAVE_BYTES]) 
+        -> Result<(), Error>{
+        let chat_session_message_file = format!(
+            "ai/gen/{}/{}/{}",
+            id, session, file_name
+        );
+        if let Err(e) = FS.with(|fs|{
+            let fd = fs.borrow_mut().open_or_create(fs.borrow().root_fd(), &chat_session_message_file, 
+                FdStat::default(), OpenFlags::CREATE|OpenFlags::TRUNCATE, get_now_secs()).unwrap();
+            if let Err(e) = fs.borrow_mut().write(fd, &data){
+                return Err(anyhow!("{:?}", e));
             }
-        };
-
-        let patos = patos_resp.pato_sn_id;
-        for pato in patos {
-            let books = self.get_pato_shared_books(pato.id.clone());
-            for book in books {
-                if !book.is_empty() && book.contains('#') {
-                    let pair = book
-                        .split('#')
-                        .map(|b| b.to_owned())
-                        .collect::<Vec<String>>();
-                    let summary = SUMMARY.with(|v| v.borrow().get(&pair[1]).unwrap_or_default());
-                    if !summary.is_empty() {
-                        let resp = Knowledge {
-                            sig: pair[1].clone(),
-                            title: pair[0].clone(),
-                            owner: pato.id.clone(),
-                            summary,
-                        };
-                        knowledges.push(resp);
-                    }
-                }
-            }
+            Ok(())
+        }){
+            return Err(anyhow!("{:?}", e));
         }
 
-        let response = SharedKnowledgesResponse { books: knowledges };
-        Ok(response)
+        Ok(())
     }
+
+    pub fn get_session_assets(&self, id: String, session: String, file_name: String) -> Result<[u8; MAX_SAVE_BYTES], Error>
+    {
+        let chat_session_message_file = format!(
+            "ai/gen/{}/{}/{}",
+            id, session, file_name
+        );
+        let mut data = [0; MAX_SAVE_BYTES];
+        if let Err(e) = FS.with(|fs|{
+            let fd = fs.borrow_mut().open_or_create(fs.borrow().root_fd(), &chat_session_message_file, 
+            FdStat::default(),OpenFlags::empty(), get_now_secs()).unwrap();
+            if let Err(e) = fs.borrow_mut().read(fd, &mut data) { return Err(anyhow!("{:?}", e)) }
+            Ok(())
+        }){
+            return Err(anyhow!("{:?}", e));
+        }
+
+        Ok(data)
+    }
+
 }

@@ -39,7 +39,7 @@ pub async fn ask_pato_knowledges(pato_id: String) -> Vec<KnowLedgeInfo>{
     knowledges
 }
 pub async fn ask_pato_name(pato_id: String)-> Option<String>{
-    let callee = AGENT_CALLEE.with(|callee| callee.borrow().as_ref().unwrap().clone());
+    let callee = AGENT_CALLEE.with(|callee| *callee.borrow().as_ref().unwrap());
     let (name,): (String,) =
         match call(callee, "request_pato_name", (pato_id.clone(),)).await {
             Ok(response) => response,

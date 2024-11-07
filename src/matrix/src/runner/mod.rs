@@ -4,7 +4,6 @@ use std::sync::atomic::Ordering;
 use std::time::Duration;
 use ic_cdk::caller;
 use ic_cdk_timers::TimerId;
-use metapower_framework::log;
 use crate::OWNER;
 
 static INITIAL_CANISTER_BALANCE: AtomicU64 = AtomicU64::new(0);
@@ -37,6 +36,11 @@ fn init(min_interval_secs: u64) {
 #[ic_cdk_macros::query]
 fn cycles_used() -> u64 {
     CYCLES_USED.load(Ordering::Relaxed)
+}
+
+#[ic_cdk_macros::query]
+fn epoch() -> u128 {
+    unsafe { SYSTEM_TICKS }
 }
 
 #[ic_cdk_macros::update]
@@ -83,7 +87,6 @@ impl MatrixRunner {
     }
     
     pub fn run_loop(&self) {
-        log!("matrix runner new round started.");
         self.increase_tick();
         track_cycles_used();
     }

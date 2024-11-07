@@ -42,6 +42,7 @@ pub const DEFAULT_PAY_LOGIN_PASS: &str = "123123";
 pub const PAY_TENANT_ID: u64 = 3332001;
 pub const SUB_BASIC: &str = "1785146807172653057";
 pub const SUB_PLUS: &str = "1785147040068456450";
+pub const MAX_SAVE_BYTES: usize = 1024*1024*5;
 
 pub const QUESTIONER_TEMPLATE: &str = r#"You are a person who likes to learn and recently hope to gain a deeper 
     understanding of some knowledge in the {domain} field. You need to ask some constructive questions to gain 
@@ -396,6 +397,8 @@ pub struct SubmitTagsRequest {
 #[derive(Deserialize, CandidType, Serialize, Debug, Default)]
 pub struct SubmitTagsResponse {
     pub avatar: String,
+    pub cover: String,
+    pub character: String,
 }
 
 #[derive(Deserialize, CandidType, Serialize, Debug)]
@@ -520,9 +523,11 @@ pub struct SceneResponse {
 
 #[derive(Deserialize, CandidType, Serialize, Debug)]
 pub struct ShareKnowLedgesRequest {
-    pub sig: String,
-    pub title: String,
+    pub biz: String,
+    pub file_type: String,
+    pub file_name: String,
     pub owner: String,
+    pub data: Vec<u8>
 }
 
 #[derive(Deserialize, CandidType, Serialize, Debug)]
@@ -845,7 +850,7 @@ pub struct BetterQuestionResponse {
 
 #[derive(Deserialize, CandidType, Serialize, Debug)]
 pub struct SomeDocs {
-    pub doc_file: String,
+    pub doc_file: Vec<u8>,
     pub doc_format: String,
 }
 
