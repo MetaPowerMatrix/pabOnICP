@@ -9,10 +9,6 @@ use metapower_framework::{PatoInfo, MAX_SAVE_BYTES};
 use serde::Deserialize;
 
 #[derive(Deserialize, CandidType)]
-pub struct EmptyResponse {}
-
-
-#[derive(Deserialize, CandidType)]
 pub struct Knowledge {
     pub sig: String,
     pub title: String,

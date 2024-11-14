@@ -3,21 +3,16 @@ pub mod identity;
 use anyhow::{anyhow, Error};
 use ic_cdk::call;
 use metapower_framework::dao::http::{BSCSvcClient, LLMSvcClient, MetaPowerSvcClient};
-use metapower_framework::{DataResponse, SimpleResponse, AI_PATO_DIR, MAX_SAVE_BYTES};
+use metapower_framework::{DataResponse, SimpleResponse, AI_PATO_DIR};
 use metapower_framework::{
-    get_now_secs, log,
-    publish_battery_actions, AnswerReply,
-    BecomeKolRequest, BestTalkRequest, BetterTalkRequest, EmptyRequest, ImageChatRequest, ImageChatResponse,
-    ImageContextRequest, ImageContextResponse, ImageDescriptionRequest, ImageDescriptionResponse, ImagePromptRequest, InstructRequest,
-    InstructResponse, JoinKolRoomRequest,
-    MessageRequest, QuestionRequest,
-    SomeDocs, SubmitTagsRequest, SubmitTagsResponse, SummarytResponse, SvcImageDescriptionRequest,
-    SvcImageDescriptionResponse, TalkResponse, TextToSpeechRequest, TextToSpeechResponse, XFILES_LOCAL_DIR, XFILES_SERVER,
+    log,
+    BecomeKolRequest, BestTalkRequest, ImageDescriptionRequest, ImageDescriptionResponse, JoinKolRoomRequest,
+    MessageRequest, SubmitTagsRequest, SubmitTagsResponse, SvcImageDescriptionRequest,
+    SvcImageDescriptionResponse, TalkResponse,
 };
-use stable_fs::fs::{FdStat, OpenFlags};
-use std::str::from_utf8;
 
-use crate::{AGENT_CALLEE, BATTERY_AVATAR, BATTERY_CHARACTER, BATTERY_COVER, BATTERY_TAGS, FS};
+use crate::reverie::memory::get_knowledge_summary;
+use crate::{AGENT_CALLEE, BATTERY_AVATAR, BATTERY_CHARACTER, BATTERY_COVER, BATTERY_TAGS};
 
 #[derive(Debug, Clone)]
 pub struct MetaPowerMatrixBatteryService {
@@ -31,53 +26,12 @@ impl MetaPowerMatrixBatteryService {
 
     pub async fn get_session_messages_summary(
         &self,
-        summary_file: String,
-        summary_content: Vec<u8>,
-    ) -> Option<String> {
-        let summary = FS.with(|fs|{
-            let mut buffer = [0u8; MAX_SAVE_BYTES];
-            let fd  = fs.borrow_mut().open_or_create(fs.borrow().root_fd(), &summary_file,
-                FdStat::default(),OpenFlags::CREATE, get_now_secs()).unwrap();
-            if let Ok(read_size) = fs.borrow_mut().read(fd, &mut buffer){
-                return from_utf8(&buffer[..read_size as usize]).unwrap_or_default().to_string();
-            }
-
-            String::default()
-        });
-        if !summary.is_empty(){
-            return Some(summary);
-        }
-        let llm_client = LLMSvcClient::default();
-        let llmrequest = SomeDocs {
-            doc_file: summary_content,
-            doc_format: "txt".to_string(),
-        };
-        match llm_client
-            .got_documents_summary("got_documents_summary", llmrequest)
-            .await
-        {
-            Ok(resp) => match serde_json::from_str::<SummarytResponse>(&resp) {
-                Ok(sum_resp) => {
-                    let summary = sum_resp.summary.clone();
-                    FS.with(|fs|{
-                        let fd = fs.borrow_mut().open_or_create(fs.borrow().root_fd(), &summary_file, 
-                            FdStat::default(), OpenFlags::CREATE|OpenFlags::TRUNCATE, get_now_secs()).unwrap();
-                        let _ = fs.borrow_mut().write(fd, summary.as_bytes());
-                    });
-                
-                    return Some(summary);
-                }
-                Err(e) => {
-                    log!("got_documents_summary from LLM error: {}", e);
-                }
-            },
-            Err(e) => {
-                log!("got_documents_summary from LLM error: {}", e);
-            }
-        }
-
-        None
+        id: String,
+        session: String,
+    ) -> Vec<u8> {
+        get_knowledge_summary(id, session).await.unwrap_or(vec![])
     }
+
     pub async fn talk(&self, request: MessageRequest) -> std::result::Result<TalkResponse, Error> {
         let chat_content = request;
         let input = chat_content.message.clone();
@@ -107,61 +61,6 @@ impl MetaPowerMatrixBatteryService {
         }
 
         Err(anyhow!("um, I didn't hear clearly"))
-    }
-
-    pub async fn request_instruct(
-        &self,
-        request: InstructRequest,
-    ) -> std::result::Result<InstructResponse, Error> {
-        let mut response = InstructResponse {
-            answer: String::default(),
-        };
-        let client = LLMSvcClient::default();
-        let chat_request = BetterTalkRequest {
-            question: request.message.clone(),
-            collection_name: vec![],
-            db_path: "".to_string(),
-            prompt: request.message.clone(),
-        };
-        // println!("chat_request: {:?}", chat_request);
-        match client
-            .call_llm_proxy::<BetterTalkRequest, AnswerReply>("talk_better", chat_request)
-            .await
-        {
-            Ok(answer) => {
-                response.answer = answer.answer.clone();
-                publish_battery_actions(
-                    request.reply_to.clone() + "/instruct",
-                    answer.answer.clone(),
-                );
-
-                let tts_request = TextToSpeechRequest {
-                    text: answer.answer.clone(),
-                };
-                match client
-                    .call_llm_proxy::<TextToSpeechRequest, TextToSpeechResponse>(
-                        "text_to_speech",
-                        tts_request,
-                    )
-                    .await
-                {
-                    Ok(audio_file) => {
-                        let audio_url = XFILES_SERVER.to_string() + "/" + &audio_file.audio_url;
-                        publish_battery_actions(
-                            request.reply_to.clone() + "/instruct/voice",
-                            audio_url,
-                        );
-                    }
-                    Err(e) => {
-                        log!("Instuct Text to speech is something wrong: {}", e);
-                    }
-                }
-            }
-            Err(e) => {
-                log!("Instruct AI is something wrong: {}", e);
-            }
-        }
-        Ok(response)
     }
 
     pub async fn request_image_description(
@@ -194,65 +93,6 @@ impl MetaPowerMatrixBatteryService {
             }
         }
         Ok(resp)
-    }
-
-    pub async fn request_chat_with_image(
-        &self,
-        request: ImageChatRequest,
-    ) -> std::result::Result<ImageChatResponse, Error> {
-        let mut response = ImageChatResponse {
-            answer: String::default(),
-            answer_voice: String::default(),
-        };
-        let local_xfile = request.image_url.split('/').last().unwrap_or_default();
-        let local_file = format!("{}/game/{}", XFILES_LOCAL_DIR, local_xfile);
-        log!("local_file: {}", local_file);
-
-        let client = LLMSvcClient::default();
-        let chat_request = ImageChatRequest {
-            image_url: request.image_url.clone(),
-            reply_to: String::default(),
-            message: String::default(),
-            room_id: String::default(),
-            level: 1,
-        };
-        println!("chat_image_request: {:?}", chat_request);
-        match client
-            .call_llm_proxy::<ImageChatRequest, ImageDescriptionResponse>(
-                "request_image_chat",
-                chat_request,
-            )
-            .await
-        {
-            Ok(answer) => {
-                response.answer = answer.description.clone();
-                let tts_request = TextToSpeechRequest {
-                    text: answer.description.clone(),
-                };
-                match client
-                    .call_llm_proxy::<TextToSpeechRequest, TextToSpeechResponse>(
-                        "text_to_speech",
-                        tts_request,
-                    )
-                    .await
-                {
-                    Ok(audio_file) => {
-                        let audio_url = XFILES_SERVER.to_string() + "/" + &audio_file.audio_url;
-                        response.answer_voice = audio_url;
-                    }
-                    Err(e) => {
-                        log!(
-                            "request_chat_with_image Text to speech is something wrong: {}",
-                            e
-                        );
-                    }
-                }
-            }
-            Err(e) => {
-                log!("request_chat_with_image AI is something wrong: {}", e);
-            }
-        }
-        Ok(response)
     }
 
     pub async fn become_kol(
@@ -317,70 +157,6 @@ impl MetaPowerMatrixBatteryService {
         };
 
         Ok(())
-    }
-
-    pub async fn request_image_context(
-        &self,
-        request: ImageContextRequest,
-    ) -> std::result::Result<ImageContextResponse, Error> {
-        let image_url = request.image_url.clone();
-        let input = request.input.clone();
-        let prompt = request.prompt.clone();
-
-        let mut context = String::default();
-        let client = LLMSvcClient::default();
-        let chat_request = ImagePromptRequest {
-            image_url,
-            prompt,
-            input,
-        };
-        // println!("chat_request: {:?}", chat_request);
-        match client
-            .call_llm_proxy::<ImagePromptRequest, ImageDescriptionResponse>(
-                "request_image_description_with_prompt",
-                chat_request,
-            )
-            .await
-        {
-            Ok(answer) => {
-                context = answer.description.clone();
-            }
-            Err(e) => {
-                log!("request_image_context AI is something wrong: {}", e);
-            }
-        }
-        let response = ImageContextResponse { context };
-
-        Ok(response)
-    }
-
-    pub async fn request_self_talk_for_today_plan(
-        &self,
-        _request: EmptyRequest,
-    ) -> std::result::Result<EmptyRequest, Error> {
-        let send_to = self.id.clone();
-                let client = LLMSvcClient::default();
-                let chat_request = QuestionRequest {
-                    subject: String::default(),
-                    persona: "I want to do something today".to_string(),
-                    question: String::default(),
-                };
-                match client
-                    .call_llm_proxy::<QuestionRequest, AnswerReply>("talk", chat_request)
-                    .await
-                {
-                    Ok(answer) => {
-                        publish_battery_actions(send_to.clone(), answer.answer.clone());
-                    }
-                    Err(e) => {
-                        log!(
-                            "request_self_talk_for_today_plan AI is something wrong: {}",
-                            e
-                        );
-                    }
-                }
-
-        Ok(EmptyRequest {})
     }
 
     pub async fn request_submit_tags_with_proxy(

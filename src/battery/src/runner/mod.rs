@@ -547,9 +547,7 @@ impl BatteryRunner {
                             let his = get_chat_his_by_session(
                                 self.id.clone(),
                                 l.0.clone(),
-                                session.to_string(),
-                            )
-                            .unwrap_or_default();
+                            ).await.unwrap_or_default();
                             if round == will_talks && !his.is_empty() {
                                 let last_words = his.last().unwrap();
                                 // log!("last words is : {}", last_sender);

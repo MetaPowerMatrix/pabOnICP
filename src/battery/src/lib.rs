@@ -9,7 +9,6 @@ use ic_stable_structures::{memory_manager::{MemoryId, MemoryManager, VirtualMemo
 use id::MetaPowerMatrixBatteryService;
 use metapower_framework::{log, BecomeKolRequest, JoinKolRoomRequest, MessageRequest, SubmitTagsRequest};
 use serde::{Deserialize, Serialize};
-use stable_fs::{fs::FileSystem, storage::stable::StableStorage};
 
 #[derive(Deserialize, Debug, Default, Serialize)]
 struct BatterCallParams{
@@ -66,16 +65,6 @@ thread_local! {
         MEMORY_MANAGER.with(|mm| {
             RefCell::new(StableBTreeMap::init(mm.borrow().get(BATTERY_CHARACTER_MEM_ID)))
         });
-
-    static FS: RefCell<FileSystem> = {
-        MEMORY_MANAGER.with(|m| {
-            let memory_manager = m.borrow();
-            let storage = StableStorage::new_with_memory_manager(&memory_manager, 200..210u8);
-            RefCell::new(
-                FileSystem::new(Box::new(storage)).unwrap()
-            )
-        })
-    };
 }
 
 fn _only_owner() {
@@ -209,6 +198,50 @@ pub fn tags_of(id: String) -> String{
 }
 
 #[ic_cdk::update]
+pub fn set_tags_of(id: String, tags_submit: String){
+    _must_initialized();
+
+    BATTERY_TAGS.with(|tags| {
+        let mut tags = tags.borrow_mut();
+        tags.insert(id.clone(), tags_submit);
+    });
+
+}
+
+#[ic_cdk::update]
+pub fn set_cover_of(id: String, cover: String){
+    _must_initialized();
+
+    BATTERY_COVER.with(|cover_map| {
+        let mut cover_map = cover_map.borrow_mut();
+        cover_map.insert(id.clone(), cover);
+    });
+
+}
+
+#[ic_cdk::update]
+pub fn set_avatar_of(id: String, avatar: String){
+    _must_initialized();
+
+    BATTERY_AVATAR.with(|avatar_map| {
+        let mut avatar_map = avatar_map.borrow_mut();
+        avatar_map.insert(id.clone(), avatar);
+    });
+
+}
+
+#[ic_cdk::update]
+pub fn set_character_of(id: String, character: String){
+    _must_initialized();
+
+    BATTERY_CHARACTER.with(|character_map| {
+        let mut character_map = character_map.borrow_mut();
+        character_map.insert(id.clone(), character);
+    });
+
+}
+
+#[ic_cdk::update]
 pub async fn talk(id: String, token: String, message: String, subject: String, prompt: String) -> String{
     _must_initialized();
 
@@ -241,24 +274,6 @@ pub async fn do_battery_service(args: String) -> String{
     let mut response_string = String::default();
 
     match call_params.method_name.as_str() {
-        "talk" => {
-            let svc =  MetaPowerMatrixBatteryService::new(call_params.id);
-            match serde_json::from_str::<MessageRequest>(&call_params.arg){
-                Ok(request) => {
-                    match svc.talk(request).await{
-                        Ok(response) => {
-                            response_string = serde_json::to_string(&response).unwrap_or_default();
-                        }
-                        Err(e) => {
-                            ic_cdk::trap(&e.to_string());
-                        }
-                    }
-                }
-                Err(e) => {
-                    ic_cdk::trap(&format!("talk error: {}", e));
-                }
-            }
-        }
         "become_kol" => {
             let svc =  MetaPowerMatrixBatteryService::new(call_params.id.clone());
             match serde_json::from_str::<BecomeKolRequest>(&call_params.arg){

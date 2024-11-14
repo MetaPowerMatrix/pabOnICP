@@ -1,13 +1,13 @@
 use anyhow::{anyhow, Error};
 use candid::Principal;
-use ic_stable_structures::memory_manager::{MemoryId, MemoryManager as MM, VirtualMemory};
-use ic_stable_structures::{DefaultMemoryImpl, RestrictedMemory, StableBTreeMap};
+use ic_stable_structures::memory_manager::MemoryManager as MM;
+use ic_stable_structures::{DefaultMemoryImpl, RestrictedMemory};
 use stable_fs::fs::{FdStat, FileSystem, OpenFlags};
 use stable_fs::storage::stable::StableStorage;
 use std::cell::RefCell;
 use std::fmt::Write;
 use crate::{
-    CreateRequest, CreateResonse, EmptyResponse, LoginRequest,
+    CreateRequest, CreateResonse, LoginRequest,
     CALLEE,
 };
 use ic_cdk::api::call::call;
@@ -15,9 +15,7 @@ use metapower_framework::dao::sqlite::MetapowerSqlite3;
 use metapower_framework::{get_now_secs, PatoInfo, SimpleResponse, MAX_SAVE_BYTES};
 
 type RM = RestrictedMemory<DefaultMemoryImpl>;
-type VM = VirtualMemory<RM>;
 
-const SUMMARY_MEM_ID: MemoryId = MemoryId::new(1);
 const METADATA_PAGES: u64 = 512;
 
 thread_local! {
@@ -25,10 +23,6 @@ thread_local! {
         MM::init(RM::new(DefaultMemoryImpl::default(), 16..METADATA_PAGES))
         );
 
-    static SUMMARY: RefCell<StableBTreeMap<String, String, VM>> =
-        MEMORY_MANAGER.with(|mm| {
-          RefCell::new(StableBTreeMap::init(mm.borrow().get(SUMMARY_MEM_ID)))
-        });
     static FS: RefCell<FileSystem> = {
         MEMORY_MANAGER.with(|m| {
             let memory_manager = m.borrow();
@@ -91,10 +85,8 @@ impl MetaPowerMatrixControllerService {
     pub fn request_pato_login(
         &self,
         _request: LoginRequest,
-    ) -> std::result::Result<EmptyResponse, Error> {
-        let response = EmptyResponse {};
-
-        Ok(response)
+    ) -> std::result::Result<(), Error> {
+        Ok(())
     }
 
     pub async fn request_create_pato(
