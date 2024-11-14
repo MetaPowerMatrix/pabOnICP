@@ -310,9 +310,7 @@ pub async fn do_battery_service(args: String) -> String{
             match serde_json::from_str::<SubmitTagsRequest>(&call_params.arg){
                 Ok(request) => {
                     match svc.request_submit_tags_with_proxy(request).await{
-                        Ok(response) => {
-                            response_string = serde_json::to_string(&response).unwrap_or_default();
-                        }
+                        Ok(_) => (),
                         Err(e) => {
                             ic_cdk::trap(&e.to_string());
                         }

@@ -44,20 +44,6 @@ pub const SUB_BASIC: &str = "1785146807172653057";
 pub const SUB_PLUS: &str = "1785147040068456450";
 pub const MAX_SAVE_BYTES: usize = 1024*1024*5;
 
-pub const QUESTIONER_TEMPLATE: &str = r#"You are a person who likes to learn and recently hope to gain a deeper 
-    understanding of some knowledge in the {domain} field. You need to ask some constructive questions to gain 
-    relevant knowledge. make a dialogue according to this, please ask only one question.
-"#;
-pub const ANSWERER_TEMPLATE: &str = r#""You are an expert in the {domain} field and can provide professional advice to the questioner,
-    Answer the question below:"
-"#;
-pub const ANSWERER_TEMPLATE_RAG: &str = r#""You are an expert in the {domain} field and can provide professional advice to the questioner,
-    Answer the question based only on the following context: {context}"
-"#;
-pub const DEFAULT_TEMPLATE: &str = r#"You are a person who likes to talk to people. 
-    Talking can relieve stress and get useful information at the same time.
-"#;
-
 #[derive(Debug, Deserialize, Serialize)]
 pub struct DataResponse {
     pub content: String,

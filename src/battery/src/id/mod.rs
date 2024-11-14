@@ -162,13 +162,7 @@ impl MetaPowerMatrixBatteryService {
     pub async fn request_submit_tags_with_proxy(
         &self,
         request: SubmitTagsRequest,
-    ) -> std::result::Result<SubmitTagsResponse, Error> {
-        let sub_resp: SubmitTagsResponse;
-
-        BATTERY_TAGS.with(|tags| {
-            let mut tags = tags.borrow_mut();
-            tags.insert(request.id.clone(), request.tags.join(","));
-        });
+    ) -> std::result::Result<(), Error> {
 
         let client = MetaPowerSvcClient::default();
         match client.metapower_proxy_post::<Vec<String>, DataResponse>(
@@ -177,29 +171,12 @@ impl MetaPowerMatrixBatteryService {
             )
             .await
         {
-            Ok(answer) => {
-                sub_resp = serde_json::from_str::<SubmitTagsResponse>(&answer.content)?;
-                let id = request.id.clone();
-
-                BATTERY_CHARACTER.with(|character| {
-                    let mut character = character.borrow_mut();
-                    character.insert(id.clone(), sub_resp.character.clone());
-                });
-
-                BATTERY_COVER.with(|avatar| {
-                    let mut avatar = avatar.borrow_mut();
-                    avatar.insert(id.clone(), sub_resp.cover.clone());
-                });
-                BATTERY_AVATAR.with(|avatar| {
-                    let mut avatar = avatar.borrow_mut();
-                    avatar.insert(id, sub_resp.avatar.clone());
-                });
-            }
+            Ok(_) => (),
             Err(e) => {
                 return Err(e);
             }
         }
 
-        Ok(sub_resp)
+        Ok(())
     }
 }
