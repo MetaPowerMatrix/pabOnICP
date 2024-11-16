@@ -12,11 +12,11 @@ use crate::{
 };
 use ic_cdk::api::call::call;
 use metapower_framework::dao::sqlite::MetapowerSqlite3;
-use metapower_framework::{get_now_secs, PatoInfo, SimpleResponse, MAX_SAVE_BYTES};
+use metapower_framework::{get_now_secs, PatoInfo, SimpleResponse};
 
 type RM = RestrictedMemory<DefaultMemoryImpl>;
 
-const METADATA_PAGES: u64 = 1024;
+const METADATA_PAGES: u64 = 512;
 
 thread_local! {
     static MEMORY_MANAGER: RefCell<MM<RM>> = RefCell::new(
@@ -26,7 +26,7 @@ thread_local! {
     static FS: RefCell<FileSystem> = {
         MEMORY_MANAGER.with(|m| {
             let memory_manager = m.borrow();
-            let storage = StableStorage::new_with_memory_manager(&memory_manager, 10..254u8);
+            let storage = StableStorage::new_with_memory_manager(&memory_manager, 200..210u8);
             RefCell::new(
                 FileSystem::new(Box::new(storage)).unwrap()
             )
