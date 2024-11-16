@@ -1,6 +1,7 @@
 use anyhow::{anyhow, Error};
-use candid::Principal;
+use candid::{CandidType, Principal};
 use ic_stable_structures::DefaultMemoryImpl;
+use serde::Serialize;
 use stable_fs::fs::{FdStat, FileSystem, OpenFlags};
 use stable_fs::storage::stable::StableStorage;
 use std::cell::RefCell;
@@ -123,7 +124,7 @@ impl MetaPowerMatrixControllerService {
         Ok(patos_resp)
     }
 
-    pub fn save_session_assets(&self, id: String, session: String, file_name: String, data: Vec<u8>) 
+    pub fn save_session_assets(&self, id: String, session: String, file_name: String, data: Vec<u8>)
         -> Result<(), Error>{
         let chat_session_message_file = format!(
             "ai/gen/{}/{}/{}",
@@ -133,7 +134,7 @@ impl MetaPowerMatrixControllerService {
         if let Err(e) = FS.with(|fs|{
             let fd = fs.borrow_mut().open_or_create(root_fd, &chat_session_message_file, 
                 FdStat::default(), OpenFlags::CREATE|OpenFlags::TRUNCATE, 0).unwrap();
-            if let Err(e) = fs.borrow_mut().write(fd, &data){
+            if let Err(e) = fs.borrow_mut().write(fd, &data) {
                 return Err(anyhow!("{:?}", e));
             }
             Ok(())
@@ -143,7 +144,7 @@ impl MetaPowerMatrixControllerService {
 
         Ok(())
     }
-
+    
     pub fn get_session_assets(&self, id: String, session: String, file_name: String) -> Result<Vec<u8>, Error>
     {
         let chat_session_message_file = format!(
