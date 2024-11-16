@@ -1,7 +1,6 @@
 use anyhow::{anyhow, Error};
 use candid::Principal;
-use ic_stable_structures::memory_manager::MemoryManager as MM;
-use ic_stable_structures::{DefaultMemoryImpl, RestrictedMemory};
+use ic_stable_structures::DefaultMemoryImpl;
 use stable_fs::fs::{FdStat, FileSystem, OpenFlags};
 use stable_fs::storage::stable::StableStorage;
 use std::cell::RefCell;
@@ -14,23 +13,11 @@ use ic_cdk::api::call::call;
 use metapower_framework::dao::sqlite::MetapowerSqlite3;
 use metapower_framework::{get_now_secs, PatoInfo, SimpleResponse};
 
-type RM = RestrictedMemory<DefaultMemoryImpl>;
-
-const METADATA_PAGES: u64 = 512;
-
 thread_local! {
-    static MEMORY_MANAGER: RefCell<MM<RM>> = RefCell::new(
-        MM::init(RM::new(DefaultMemoryImpl::default(), 16..METADATA_PAGES))
-        );
-
     static FS: RefCell<FileSystem> = {
-        MEMORY_MANAGER.with(|m| {
-            let memory_manager = m.borrow();
-            let storage = StableStorage::new_with_memory_manager(&memory_manager, 200..210u8);
-            RefCell::new(
-                FileSystem::new(Box::new(storage)).unwrap()
-            )
-        })
+        let memory = DefaultMemoryImpl::default();
+        let storage = StableStorage::new(memory);
+        RefCell::new(FileSystem::new(Box::new(storage)).unwrap())
     };
 }
 
