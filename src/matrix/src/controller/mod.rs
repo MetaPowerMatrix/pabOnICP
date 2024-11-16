@@ -129,8 +129,9 @@ impl MetaPowerMatrixControllerService {
             "ai/gen/{}/{}/{}",
             id, session, file_name
         );
+        let root_fd = FS.with(|fs| fs.borrow_mut().root_fd());
         if let Err(e) = FS.with(|fs|{
-            let fd = fs.borrow_mut().open_or_create(fs.borrow_mut().root_fd(), &chat_session_message_file, 
+            let fd = fs.borrow_mut().open_or_create(root_fd, &chat_session_message_file, 
                 FdStat::default(), OpenFlags::CREATE|OpenFlags::TRUNCATE, get_now_secs()).unwrap();
             if let Err(e) = fs.borrow_mut().write(fd, &data){
                 return Err(anyhow!("{:?}", e));
