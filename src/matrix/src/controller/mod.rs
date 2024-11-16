@@ -16,7 +16,7 @@ use metapower_framework::{get_now_secs, PatoInfo, SimpleResponse, MAX_SAVE_BYTES
 
 type RM = RestrictedMemory<DefaultMemoryImpl>;
 
-const METADATA_PAGES: u64 = 512;
+const METADATA_PAGES: u64 = 1024;
 
 thread_local! {
     static MEMORY_MANAGER: RefCell<MM<RM>> = RefCell::new(
@@ -26,7 +26,7 @@ thread_local! {
     static FS: RefCell<FileSystem> = {
         MEMORY_MANAGER.with(|m| {
             let memory_manager = m.borrow();
-            let storage = StableStorage::new_with_memory_manager(&memory_manager, 200..210u8);
+            let storage = StableStorage::new_with_memory_manager(&memory_manager, 10..254u8);
             RefCell::new(
                 FileSystem::new(Box::new(storage)).unwrap()
             )

@@ -7,12 +7,12 @@ use metapower_framework::{DataResponse, SimpleResponse, AI_PATO_DIR};
 use metapower_framework::{
     log,
     BecomeKolRequest, BestTalkRequest, ImageDescriptionRequest, ImageDescriptionResponse, JoinKolRoomRequest,
-    MessageRequest, SubmitTagsRequest, SubmitTagsResponse, SvcImageDescriptionRequest,
+    MessageRequest, SubmitTagsRequest, SvcImageDescriptionRequest,
     SvcImageDescriptionResponse, TalkResponse,
 };
 
 use crate::reverie::memory::get_knowledge_summary;
-use crate::{AGENT_CALLEE, BATTERY_AVATAR, BATTERY_CHARACTER, BATTERY_COVER, BATTERY_TAGS};
+use crate::AGENT_CALLEE;
 
 #[derive(Debug, Clone)]
 pub struct MetaPowerMatrixBatteryService {

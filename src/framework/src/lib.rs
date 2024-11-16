@@ -42,7 +42,7 @@ pub const DEFAULT_PAY_LOGIN_PASS: &str = "123123";
 pub const PAY_TENANT_ID: u64 = 3332001;
 pub const SUB_BASIC: &str = "1785146807172653057";
 pub const SUB_PLUS: &str = "1785147040068456450";
-pub const MAX_SAVE_BYTES: usize = 1024*1024*5;
+pub const MAX_SAVE_BYTES: usize = 1024*5;
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct DataResponse {
