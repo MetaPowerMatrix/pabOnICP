@@ -132,7 +132,7 @@ impl MetaPowerMatrixControllerService {
         let root_fd = FS.with(|fs| fs.borrow_mut().root_fd());
         if let Err(e) = FS.with(|fs|{
             let fd = fs.borrow_mut().open_or_create(root_fd, &chat_session_message_file, 
-                FdStat::default(), OpenFlags::CREATE|OpenFlags::TRUNCATE, get_now_secs()).unwrap();
+                FdStat::default(), OpenFlags::CREATE|OpenFlags::TRUNCATE, 0).unwrap();
             if let Err(e) = fs.borrow_mut().write(fd, &data){
                 return Err(anyhow!("{:?}", e));
             }
@@ -150,10 +150,11 @@ impl MetaPowerMatrixControllerService {
             "ai/gen/{}/{}/{}",
             id, session, file_name
         );
+        let root_fd = FS.with(|fs| fs.borrow_mut().root_fd());
         let mut data: Vec<u8> = vec![];
         if let Err(e) = FS.with(|fs|{
-            let fd = fs.borrow_mut().open_or_create(fs.borrow_mut().root_fd(), &chat_session_message_file, 
-            FdStat::default(),OpenFlags::empty(), get_now_secs()).unwrap();
+            let fd = fs.borrow_mut().open_or_create(root_fd, &chat_session_message_file, 
+            FdStat::default(),OpenFlags::empty(), 0).unwrap();
             if let Err(e) = fs.borrow_mut().read(fd, &mut data) { return Err(anyhow!("{:?}", e)) }
             Ok(())
         }){
