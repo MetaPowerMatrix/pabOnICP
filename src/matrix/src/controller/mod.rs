@@ -136,7 +136,7 @@ impl MetaPowerMatrixControllerService {
         Ok(patos_resp)
     }
 
-    pub fn save_session_assets(&self, id: String, session: String, file_name: String, data: [u8; MAX_SAVE_BYTES]) 
+    pub fn save_session_assets(&self, id: String, session: String, file_name: String, data: Vec<u8>) 
         -> Result<(), Error>{
         let chat_session_message_file = format!(
             "ai/gen/{}/{}/{}",
@@ -156,13 +156,13 @@ impl MetaPowerMatrixControllerService {
         Ok(())
     }
 
-    pub fn get_session_assets(&self, id: String, session: String, file_name: String) -> Result<[u8; MAX_SAVE_BYTES], Error>
+    pub fn get_session_assets(&self, id: String, session: String, file_name: String) -> Result<Vec<u8>, Error>
     {
         let chat_session_message_file = format!(
             "ai/gen/{}/{}/{}",
             id, session, file_name
         );
-        let mut data = [0; MAX_SAVE_BYTES];
+        let mut data: Vec<u8> = vec![];
         if let Err(e) = FS.with(|fs|{
             let fd = fs.borrow_mut().open_or_create(fs.borrow().root_fd(), &chat_session_message_file, 
             FdStat::default(),OpenFlags::empty(), get_now_secs()).unwrap();

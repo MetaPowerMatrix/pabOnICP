@@ -139,9 +139,8 @@ async fn request_hot_ai() -> Vec<PatoInfo>{
 #[ic_cdk::update]
 fn upload_session_assets(id: String, session_key: String, file_name: String, file_data: Vec<u8> ){
     _must_initialized();
-    let data: [u8; MAX_SAVE_BYTES] = file_data.try_into().unwrap();
 
-    if let Err(err) = MetaPowerMatrixControllerService::default().save_session_assets(id, session_key, file_name, data){
+    if let Err(err) = MetaPowerMatrixControllerService::default().save_session_assets(id, session_key, file_name, file_data){
         ic_cdk::trap(&err.to_string());
     }
 }
@@ -157,7 +156,7 @@ async fn check_session_assets(id: String, session_key: String, file_name: String
 }
 
 #[ic_cdk::update]
-async fn query_session_assets(id: String, session_key: String, file_name: String) -> [u8; MAX_SAVE_BYTES] {
+async fn query_session_assets(id: String, session_key: String, file_name: String) -> Vec<u8> {
     _must_initialized();
 
     match MetaPowerMatrixControllerService::default().get_session_assets(id, session_key, file_name) {
