@@ -166,7 +166,7 @@ impl MetaPowerMatrixBatteryService {
 
         let client = MetaPowerSvcClient::default();
         match client.metapower_proxy_post::<Vec<String>, DataResponse>(
-                &format!("/api/pato/proxy/submit/tags/{}", request.id),
+                &format!("/api/pato/proxy/submit/tags/{}/{}", request.id, request.session),
                 request.tags,
             )
             .await
