@@ -36,6 +36,7 @@ const BATTERY_TAGS_MEM_ID: MemoryId = MemoryId::new(0);
 const BATTERY_AVATAR_MEM_ID: MemoryId = MemoryId::new(1);
 const BATTERY_CHARACTER_MEM_ID: MemoryId = MemoryId::new(2);
 const BATTERY_COVER_MEM_ID: MemoryId = MemoryId::new(3);
+const BATTERY_SESSION_MEM_ID: MemoryId = MemoryId::new(4);
 const METADATA_PAGES: u64 = 1024;
 
 thread_local! {
@@ -64,6 +65,11 @@ thread_local! {
     static BATTERY_CHARACTER: RefCell<StableBTreeMap<String, String, VM>> =
         MEMORY_MANAGER.with(|mm| {
             RefCell::new(StableBTreeMap::init(mm.borrow().get(BATTERY_CHARACTER_MEM_ID)))
+        });
+
+    static BATTERY_SESSIONS: RefCell<StableBTreeMap<String, String, VM>> =
+        MEMORY_MANAGER.with(|mm| {
+            RefCell::new(StableBTreeMap::init(mm.borrow().get(BATTERY_SESSION_MEM_ID)))
         });
 }
 
@@ -197,6 +203,17 @@ pub fn tags_of(id: String) -> String{
     tags
 }
 
+#[ic_cdk::query]
+pub fn session_of(id: String) -> String{
+    _must_initialized();
+
+    let sessions = BATTERY_SESSIONS.with(|sessions| {
+        sessions.borrow().get(&id).unwrap_or_default()
+    });
+
+    sessions
+}
+
 #[ic_cdk::update]
 pub fn set_tags_of(id: String, tags_submit: String){
     _must_initialized();
@@ -237,6 +254,19 @@ pub fn set_character_of(id: String, character: String){
     BATTERY_CHARACTER.with(|character_map| {
         let mut character_map = character_map.borrow_mut();
         character_map.insert(id.clone(), character);
+    });
+
+}
+
+#[ic_cdk::update]
+pub fn set_session_of(id: String, session_key: String){
+    _must_initialized();
+
+    BATTERY_SESSIONS.with(|session_map| {
+        let mut session_map = session_map.borrow_mut();
+        let prev = session_map.get(&id).unwrap_or_default();
+        let updated = prev + "," + &session_key;
+        session_map.insert(id.clone(), updated);
     });
 
 }
