@@ -132,7 +132,7 @@ fn init() {
 }
 
 #[ic_cdk::update]
-fn initialize(matrix_canister: Principal, agent_canister: Principal) -> Result<(), ()> {
+fn initialize(matrix_canister: Principal, agent_canister: Principal, vector_canister: Principal) -> Result<(), ()> {
    unsafe {
        if INITIALIZED {
            ic_cdk::trap("initialized");
@@ -144,7 +144,11 @@ fn initialize(matrix_canister: Principal, agent_canister: Principal) -> Result<(
         });
         AGENT_CALLEE.with(|callee| {
             *callee.borrow_mut() = Some(agent_canister);
-        });    
+        });
+        VECTOR_CALLEE.with(|callee| {
+            *callee.borrow_mut() = Some(vector_canister);
+        });
+
         INITIALIZED = true;
     }
 
