@@ -146,12 +146,15 @@ fn upload_session_assets(id: String, session_key: String, file_name: String, fil
 }
 
 #[ic_cdk::update]
-async fn check_session_assets(id: String, session_key: String, file_name: String) -> bool {
+async fn check_session_assets(id: String, session_key: String, file_name: String) -> (bool, Vec<u8>) {
     _must_initialized();
 
     match MetaPowerMatrixControllerService::default().get_session_assets(id, session_key, file_name) {
-        Ok(_) => true,
-        Err(err) => ic_cdk::trap(&err.to_string()),
+        Ok(data) => (true, data),
+        Err(err) => {
+            (false, err.to_string().as_bytes().to_vec())
+            // ic_cdk::trap(&err.to_string())
+        }
     }
 }
 
