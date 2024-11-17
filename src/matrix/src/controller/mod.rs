@@ -131,20 +131,24 @@ impl MetaPowerMatrixControllerService {
             id, session, file_name
         );
         let root_fd = FS.with(|fs| fs.borrow_mut().root_fd());
-        if let Err(e) = FS.with(|fs|{
+        match FS.with(|fs|{
             match fs.borrow_mut().open_or_create(root_fd, &chat_session_message_file, 
                 FdStat::default(), OpenFlags::CREATE|OpenFlags::TRUNCATE, 0){
-                Ok(fd) => {
-                    if let Err(e) = fs.borrow_mut().write(fd, &data) {
-                        return Err(anyhow!("{:?}", e));
-                    }
-                    Ok(())
-        
-                }
+                Ok(fd) => Ok(fd),
                 Err(e) => Err(anyhow!("{:?}", e)),
             }
         }){
-            return Err(anyhow!("{:?}", e));
+            Ok(fd) => {
+                if let Err(e) = FS.with(|fs|{
+                    if let Err(e) = fs.borrow_mut().write(fd, &data) { 
+                        return Err(anyhow!("{:?}", e)) 
+                    };
+                    Ok(())
+                }){
+                    return Err(anyhow!("{:?}", e));
+                }
+            }
+            Err(e) => return Err(anyhow!("{:?}", e)),
         }
 
         Ok(())
@@ -158,19 +162,24 @@ impl MetaPowerMatrixControllerService {
         );
         let root_fd = FS.with(|fs| fs.borrow_mut().root_fd());
         let mut data: Vec<u8> = vec![];
-        if let Err(e) = FS.with(|fs|{
+        match FS.with(|fs|{
             match fs.borrow_mut().open_or_create(root_fd, &chat_session_message_file, 
             FdStat::default(),OpenFlags::empty(), 0){
-                Ok(fd) => {
-                    if let Err(e) = fs.borrow_mut().read(fd, &mut data) { 
-                        return Err(anyhow!("{:?}", e)) 
-                    }
-                    Ok(())        
-                },
+                Ok(fd) => Ok(fd),
                 Err(e) => Err(anyhow!("{:?}", e)),
             }
         }){
-            return Err(anyhow!("{:?}", e));
+            Ok(fd) => {
+                if let Err(e) = FS.with(|fs|{
+                    if let Err(e) = fs.borrow_mut().read(fd, &mut data) { 
+                        return Err(anyhow!("{:?}", e)) 
+                    };
+                    Ok(())
+                }){
+                    return Err(anyhow!("{:?}", e));
+                }
+            }
+            Err(e) => return Err(anyhow!("{:?}", e)),
         }
 
         Ok(data)
