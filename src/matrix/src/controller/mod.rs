@@ -249,7 +249,7 @@ impl MetaPowerMatrixControllerService {
 
         for dir_name in path {
             match FS.with(|fs| {
-                match fs.borrow_mut().open_or_create(last_dir,dir_name,FdStat::default(),OpenFlags::DIRECTORY,0){
+                match fs.borrow_mut().open_or_create(last_dir,dir_name,FdStat::default(),OpenFlags::CREATE|OpenFlags::DIRECTORY,0){
                     Ok(dir) => Ok(dir),
                     Err(e) => Err(anyhow!("{:?}", e)),
                 }
