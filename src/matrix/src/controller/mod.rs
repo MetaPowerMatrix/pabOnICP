@@ -128,7 +128,7 @@ impl MetaPowerMatrixControllerService {
         -> Result<(), Error>{
         let dirs = format!("ai/gen/{}/{}", id, session);
         let root_fd = FS.with(|fs| fs.borrow_mut().root_fd());
-        let dir = self.create_dir(root_fd, dirs)?;
+        let dir = self.open_dir(root_fd, dirs)?;
 
         match FS.with(|fs|{
             match fs.borrow_mut().open_or_create(dir, &file_name, 
