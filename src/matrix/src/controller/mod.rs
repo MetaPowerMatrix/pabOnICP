@@ -155,11 +155,12 @@ impl MetaPowerMatrixControllerService {
         Ok(size)
     }
 
-    pub fn get_session_assets(&self, id: String, session: String, file_name: String) -> Result<Vec<u8>, Error>
+    pub fn get_session_assets(&self, id: String, session: String, file_name: String) -> Result<(Vec<u8>, u64), Error>
     {
         let dirs = format!("ai/gen/{}/{}", id, session);
         let root_fd = FS.with(|fs| fs.borrow_mut().root_fd());
         let dir = self.open_dir(root_fd, dirs)?;
+        let mut size = 0;
 
         let mut data: Vec<u8> = vec![];
         match FS.with(|fs|{
@@ -171,8 +172,9 @@ impl MetaPowerMatrixControllerService {
         }){
             Ok(fd) => {
                 if let Err(e) = FS.with(|fs|{
-                    if let Err(e) = fs.borrow_mut().read(fd, &mut data) { 
-                        return Err(anyhow!("{:?}", e)) 
+                    match fs.borrow_mut().read(fd, &mut data) { 
+                        Ok(s) => size = s,
+                        Err(e) => return Err(anyhow!("{:?}", e)) 
                     };
                     Ok(())
                 }){
@@ -182,7 +184,7 @@ impl MetaPowerMatrixControllerService {
             Err(e) => return Err(anyhow!("{:?}", e)),
         }
 
-        Ok(data)
+        Ok((data, size))
     }
 
     pub fn list_files(&self, path: String) -> Result<Vec<String>, Error> {

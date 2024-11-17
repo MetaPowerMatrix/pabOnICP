@@ -147,13 +147,13 @@ fn upload_session_assets(id: String, session_key: String, file_name: String, fil
 }
 
 #[ic_cdk::update]
-async fn check_session_assets(id: String, session_key: String, file_name: String) -> (bool, Vec<u8>) {
+async fn check_session_assets(id: String, session_key: String, file_name: String) -> (bool, Vec<u8>, u64) {
     _must_initialized();
 
     match MetaPowerMatrixControllerService::default().get_session_assets(id, session_key, file_name) {
-        Ok(data) => (true, data),
+        Ok(data) => (true, data.0, data.1),
         Err(err) => {
-            (false, err.to_string().as_bytes().to_vec())
+            (false, err.to_string().as_bytes().to_vec(), 0)
             // ic_cdk::trap(&err.to_string())
         }
     }
@@ -170,7 +170,7 @@ async fn query_session_files(path: String) -> Vec<String> {
 }
 
 #[ic_cdk::update]
-async fn query_session_assets(id: String, session_key: String, file_name: String) -> Vec<u8> {
+async fn query_session_assets(id: String, session_key: String, file_name: String) -> (Vec<u8>, u64) {
     _must_initialized();
 
     match MetaPowerMatrixControllerService::default().get_session_assets(id, session_key, file_name) {
