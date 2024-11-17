@@ -7,7 +7,7 @@ use metapower_framework::{DataResponse, SimpleResponse};
 use metapower_framework::{
     log,
     BecomeKolRequest, ImageDescriptionRequest, ImageDescriptionResponse, JoinKolRoomRequest, SubmitTagsRequest, SvcImageDescriptionRequest,
-    SvcImageDescriptionResponse, TalkResponse,
+    SvcImageDescriptionResponse,
 };
 
 use crate::reverie::memory::get_knowledge_summary;
@@ -37,7 +37,7 @@ impl MetaPowerMatrixBatteryService {
         let (result,): (Option<Vec<PlainDoc>>,) = match call(
             callee,
             "search",
-            (request,2,),
+            (request,2 as usize,),
         )
         .await
         {

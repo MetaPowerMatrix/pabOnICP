@@ -4,10 +4,10 @@ pub mod reverie;
 
 use std::cell::RefCell;
 use candid::{CandidType, Principal};
-use ic_cdk::{call, caller, query};
+use ic_cdk::{call, caller};
 use ic_stable_structures::{memory_manager::{MemoryId, MemoryManager, VirtualMemory}, StableBTreeMap, DefaultMemoryImpl, RestrictedMemory};
 use id::MetaPowerMatrixBatteryService;
-use metapower_framework::{log, BecomeKolRequest, JoinKolRoomRequest, MessageRequest, SubmitTagsRequest};
+use metapower_framework::{log, BecomeKolRequest, JoinKolRoomRequest, SubmitTagsRequest};
 use serde::{Deserialize, Serialize};
 
 #[derive(CandidType, Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
