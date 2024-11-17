@@ -8,14 +8,14 @@ use metapower_framework::{
 };
 use metapower_framework::{
     AirdropRequest, ChangeBalanceRequest, EmptyRequest, FollowKolRequest, ImageGenRequest,
-    ImageGenResponse, InjectHumanVoiceRequest, KolListResponse, KolRegistrationRequest,
+    ImageGenResponse, InjectHumanVoiceRequest, KolRegistrationRequest,
     KolRelations, MessageRequest, NamePros, NameRequest, NameResponse, PatoInfo, PatoInfoResponse,
     PopulationRegistrationRequest, ProfessionalsResponse, RoomCreateRequest, RoomCreateResponse,
     RoomInfo, RoomListResponse, SimpleRequest, SimpleResponse, TokenRequest, TokenResponse,
     TopicChatHisResponse, TopicChatRequest, UserActiveRequest,
 };
 use metapower_framework::{
-    BATTERY_GRPC_REST_SERVER, BATTERY_GRPC_SERVER_PORT_START, OFFICIAL_PATO, XFILES_SERVER,
+    BATTERY_GRPC_REST_SERVER, BATTERY_GRPC_SERVER_PORT_START, OFFICIAL_PATO,
 };
 use sha1::Digest;
 use std::collections::HashMap;

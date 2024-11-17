@@ -1,9 +1,8 @@
 use anyhow::{anyhow, Error};
 use candid::Principal;
 use ic_stable_structures::DefaultMemoryImpl;
-use stable_fs::fs::{Fd, FdStat, FileSize, FileSystem, OpenFlags};
+use stable_fs::fs::{FdStat, FileSize, FileSystem, OpenFlags};
 use stable_fs::storage::stable::StableStorage;
-use stable_fs::storage::types::Node;
 use std::cell::RefCell;
 use std::fmt::Write;
 use std::str::FromStr;
