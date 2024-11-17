@@ -291,8 +291,7 @@ pub fn set_session_of(id: String, session_key: String){
 
 }
 
-// #[ic_cdk::update]
-#[query(composite = true)]
+#[ic_cdk::update]
 pub async fn search_embeddings(id: String, input: Vec<f32>) -> String{
     _must_initialized();
 
