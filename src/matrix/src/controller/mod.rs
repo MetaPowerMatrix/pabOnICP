@@ -132,19 +132,24 @@ impl MetaPowerMatrixControllerService {
         );
         let root_fd = FS.with(|fs| fs.borrow_mut().root_fd());
         if let Err(e) = FS.with(|fs|{
-            let fd = fs.borrow_mut().open_or_create(root_fd, &chat_session_message_file, 
-                FdStat::default(), OpenFlags::CREATE|OpenFlags::TRUNCATE, 0).unwrap();
-            if let Err(e) = fs.borrow_mut().write(fd, &data) {
-                return Err(anyhow!("{:?}", e));
+            match fs.borrow_mut().open_or_create(root_fd, &chat_session_message_file, 
+                FdStat::default(), OpenFlags::CREATE|OpenFlags::TRUNCATE, 0){
+                Ok(fd) => {
+                    if let Err(e) = fs.borrow_mut().write(fd, &data) {
+                        return Err(anyhow!("{:?}", e));
+                    }
+                    Ok(())
+        
+                }
+                Err(e) => Err(anyhow!("{:?}", e)),
             }
-            Ok(())
         }){
             return Err(anyhow!("{:?}", e));
         }
 
         Ok(())
     }
-    
+
     pub fn get_session_assets(&self, id: String, session: String, file_name: String) -> Result<Vec<u8>, Error>
     {
         let chat_session_message_file = format!(
@@ -154,10 +159,16 @@ impl MetaPowerMatrixControllerService {
         let root_fd = FS.with(|fs| fs.borrow_mut().root_fd());
         let mut data: Vec<u8> = vec![];
         if let Err(e) = FS.with(|fs|{
-            let fd = fs.borrow_mut().open_or_create(root_fd, &chat_session_message_file, 
-            FdStat::default(),OpenFlags::empty(), 0).unwrap();
-            if let Err(e) = fs.borrow_mut().read(fd, &mut data) { return Err(anyhow!("{:?}", e)) }
-            Ok(())
+            match fs.borrow_mut().open_or_create(root_fd, &chat_session_message_file, 
+            FdStat::default(),OpenFlags::empty(), 0){
+                Ok(fd) => {
+                    if let Err(e) = fs.borrow_mut().read(fd, &mut data) { 
+                        return Err(anyhow!("{:?}", e)) 
+                    }
+                    Ok(())        
+                },
+                Err(e) => Err(anyhow!("{:?}", e)),
+            }
         }){
             return Err(anyhow!("{:?}", e));
         }
