@@ -1,8 +1,9 @@
 use anyhow::{anyhow, Error};
 use candid::Principal;
 use ic_stable_structures::DefaultMemoryImpl;
-use stable_fs::fs::{FdStat, FileSize, FileSystem, OpenFlags};
+use stable_fs::fs::{Fd, FdStat, FileSize, FileSystem, OpenFlags};
 use stable_fs::storage::stable::StableStorage;
+use stable_fs::storage::types::Node;
 use std::cell::RefCell;
 use std::fmt::Write;
 use std::str::FromStr;
@@ -123,7 +124,6 @@ impl MetaPowerMatrixControllerService {
 
         Ok(patos_resp)
     }
-
     pub fn save_session_assets(&self, id: String, session: String, file_name: String, data: Vec<u8>)
         -> Result<FileSize, Error>{
         let dirs = format!("ai/gen/{}/{}", id, session);
@@ -172,8 +172,14 @@ impl MetaPowerMatrixControllerService {
         }){
             Ok(fd) => {
                 if let Err(e) = FS.with(|fs|{
-                    match fs.borrow_mut().read(fd, &mut data) { 
-                        Ok(s) => size = s,
+                    let mut fhandle = fs.borrow_mut();
+                    let meta = fhandle.metadata(fd).unwrap();
+                    let mut buf  = vec![0; meta.size as usize];
+                    match fhandle.read(fd, &mut buf) { 
+                        Ok(s) => {
+                            size = s;
+                            data = buf;
+                        }
                         Err(e) => return Err(anyhow!("{:?}", e)) 
                     };
                     Ok(())
