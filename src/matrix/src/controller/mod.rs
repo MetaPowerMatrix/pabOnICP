@@ -183,22 +183,24 @@ impl MetaPowerMatrixControllerService {
         Ok(data)
     }
 
-    pub fn list_files(&self) -> Result<Vec<String>, Error> {
+    pub fn list_files(&self, path: String) -> Result<Vec<String>, Error> {
         let mut res = vec![];
-        let path: &str = "/";
-        let root_fd = FS.with(|fs| fs.borrow_mut().root_fd());
-        let fd = FS.with(|fs|{
-            let fd = fs.borrow_mut().open_or_create(root_fd, path, FdStat::default(), OpenFlags::DIRECTORY, 0).unwrap();
-            fd
-        });
+        let mut root_fd = FS.with(|fs| fs.borrow_mut().root_fd());
+        if path != *"/"{
+            root_fd = self.open_dir(root_fd, path)?;
+        }
+        // let fd = FS.with(|fs|{
+        //     let fd = fs.borrow_mut().open_or_create(root_fd, path, FdStat::default(), OpenFlags::DIRECTORY, 0).unwrap();
+        //     fd
+        // });
         let mut entry_index = FS.with(|fs|{
-            let meta = fs.borrow_mut().metadata(fd).unwrap();
+            let meta = fs.borrow_mut().metadata(root_fd).unwrap();
             meta.first_dir_entry
         });
 
         while let Some(index) = entry_index {
             let entry = FS.with(|fs|{
-                fs.borrow_mut().get_direntry(fd, index).unwrap()
+                fs.borrow_mut().get_direntry(root_fd, index).unwrap()
             });
 
             let filename_str: &str =
@@ -230,15 +232,6 @@ impl MetaPowerMatrixControllerService {
         }
 
         Ok(last_dir)
-        // let dir = fs
-        //     .open_or_create(
-        //         fs.root_fd(),
-        //         "test",
-        //         FdStat::default(),
-        //         OpenFlags::empty(),
-        //         0,
-        //     )
-        //     .unwrap();
     }
     fn open_dir(&self, root_fd: u32, dirs: String) -> Result<u32, Error>{
         let path = dirs.split("/").collect::<Vec<&str>>();
@@ -246,7 +239,7 @@ impl MetaPowerMatrixControllerService {
 
         for dir_name in path {
             match FS.with(|fs| {
-                match fs.borrow_mut().open_or_create(last_dir,dir_name,FdStat::default(),OpenFlags::empty(),0){
+                match fs.borrow_mut().open_or_create(last_dir,dir_name,FdStat::default(),OpenFlags::DIRECTORY,0){
                     Ok(dir) => Ok(dir),
                     Err(e) => Err(anyhow!("{:?}", e)),
                 }
