@@ -234,19 +234,16 @@ impl MetaPowerMatrixControllerService {
         Ok(res)
     }
     fn create_dir(&self, root_fd: u32, dirs: String) -> Result<u32, Error>{
-        let path = dirs.split("/").collect::<Vec<&str>>();
         let mut last_dir = root_fd;
 
-        for dir_name in path {
-            match FS.with(|fs| {
-                match fs.borrow_mut().create_dir(last_dir, dir_name, FdStat::default(), 0){
-                    Ok(dir) => Ok(dir),
-                    Err(e) => Err(anyhow!("{:?}", e)),
-                }
-            }){
-                Ok(dir) => last_dir = dir,
-                Err(e) => return Err(anyhow!("{:?}", e)),
+        match FS.with(|fs| {
+            match fs.borrow_mut().create_dir(last_dir, &dirs, FdStat::default(), 0){
+                Ok(dir) => Ok(dir),
+                Err(e) => Err(anyhow!("{:?}", e)),
             }
+        }){
+            Ok(dir) => last_dir = dir,
+            Err(e) => return Err(anyhow!("{:?}", e)),
         }
 
         Ok(last_dir)
