@@ -3,16 +3,15 @@ pub mod identity;
 use anyhow::{anyhow, Error};
 use ic_cdk::call;
 use metapower_framework::dao::http::{BSCSvcClient, LLMSvcClient, MetaPowerSvcClient};
-use metapower_framework::{DataResponse, SimpleResponse, AI_PATO_DIR};
+use metapower_framework::{DataResponse, SimpleResponse};
 use metapower_framework::{
     log,
-    BecomeKolRequest, BestTalkRequest, ImageDescriptionRequest, ImageDescriptionResponse, JoinKolRoomRequest,
-    MessageRequest, SubmitTagsRequest, SvcImageDescriptionRequest,
+    BecomeKolRequest, ImageDescriptionRequest, ImageDescriptionResponse, JoinKolRoomRequest, SubmitTagsRequest, SvcImageDescriptionRequest,
     SvcImageDescriptionResponse, TalkResponse,
 };
 
 use crate::reverie::memory::get_knowledge_summary;
-use crate::AGENT_CALLEE;
+use crate::{PlainDoc, VecQuery, AGENT_CALLEE, VECTOR_CALLEE};
 
 #[derive(Debug, Clone)]
 pub struct MetaPowerMatrixBatteryService {
@@ -32,35 +31,21 @@ impl MetaPowerMatrixBatteryService {
         get_knowledge_summary(id, session).await.unwrap_or(vec![])
     }
 
-    pub async fn talk(&self, request: MessageRequest) -> std::result::Result<TalkResponse, Error> {
-        let chat_content = request;
-        let input = chat_content.message.clone();
-        let prompt = chat_content.prompt.clone();
-        let db_path = format!("{}/{}/db/knowledge_chromadb", AI_PATO_DIR, self.id);
-
-        let llm_client = LLMSvcClient::default();
-        let chat_request = BestTalkRequest {
-            question: input,
-            collection_name: "".to_string(),
-            db_path,
-            prompt,
+    pub async fn talk(&self, query: Vec<f32>) -> std::result::Result<Vec<PlainDoc>, Error> {
+        let request = VecQuery::Embeddings(query);
+        let callee = VECTOR_CALLEE.with(|callee| *callee.borrow().as_ref().unwrap());
+        let (result,): (Option<Vec<PlainDoc>>,) = match call(
+            callee,
+            "search",
+            (request,),
+        )
+        .await
+        {
+            Ok(result) => result,
+            Err((code, msg)) => return Err(anyhow!("{}: {}", code as u8, msg)),
         };
-        // println!("chat_request: {:?}", chat_request);
-        match llm_client.talk_best("talk_best", chat_request).await {
-            Ok(answer) => {
-                // log!("- I({}) said: {}", self.id, answer.answer.clone());
-                let response = TalkResponse {
-                    speaker: self.id.clone(),
-                    message: answer.answer.clone(),
-                };
-                return Ok(response);
-            }
-            Err(e) => {
-                log!("My AI {} is something wrong: {}", self.id, e);
-            }
-        }
 
-        Err(anyhow!("um, I didn't hear clearly"))
+        Ok(result.unwrap_or_default())
     }
 
     pub async fn request_image_description(

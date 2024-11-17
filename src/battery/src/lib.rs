@@ -3,12 +3,27 @@ pub mod runner;
 pub mod reverie;
 
 use std::cell::RefCell;
-use candid::Principal;
+use candid::{CandidType, Principal};
 use ic_cdk::{call, caller};
 use ic_stable_structures::{memory_manager::{MemoryId, MemoryManager, VirtualMemory}, StableBTreeMap, DefaultMemoryImpl, RestrictedMemory};
 use id::MetaPowerMatrixBatteryService;
 use metapower_framework::{log, BecomeKolRequest, JoinKolRoomRequest, MessageRequest, SubmitTagsRequest};
 use serde::{Deserialize, Serialize};
+
+#[derive(CandidType, Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
+pub struct PlainDoc {
+    pub content: String,
+}
+#[derive(CandidType, Serialize, Deserialize, Debug, Clone)]
+pub struct VecDoc {
+    pub content: String,
+    pub embeddings: Vec<f32>,
+}
+
+#[derive(CandidType, Serialize, Deserialize, Debug, Clone)]
+pub enum VecQuery {
+    Embeddings(Vec<f32>),
+}
 
 #[derive(Deserialize, Debug, Default, Serialize)]
 struct BatterCallParams{
@@ -42,6 +57,7 @@ const METADATA_PAGES: u64 = 1024;
 thread_local! {
     static MATRIX_CALLEE: RefCell<Option<Principal>> = const { RefCell::new(None) };
     static AGENT_CALLEE: RefCell<Option<Principal>> = const { RefCell::new(None) };
+    static VECTOR_CALLEE: RefCell<Option<Principal>> = const { RefCell::new(None) };
 
     static MEMORY_MANAGER: RefCell<MemoryManager<RM>> = RefCell::new(
         MemoryManager::init(RM::new(DefaultMemoryImpl::default(), 16..METADATA_PAGES))
@@ -272,20 +288,19 @@ pub fn set_session_of(id: String, session_key: String){
 }
 
 #[ic_cdk::update]
-pub async fn talk(id: String, token: String, message: String, subject: String, prompt: String) -> String{
+pub async fn search_embeddings(id: String, input: Vec<f32>) -> String{
     _must_initialized();
 
     let svc =  MetaPowerMatrixBatteryService::new(id);
 
-    let request = MessageRequest{
-        message,
-        subject,
-        prompt,
-    };
-
-    let resp = svc.talk(request).await;
-
-    String::default()
+    match svc.talk(input).await{
+        Ok(response) => {
+            response.iter().map(|doc| doc.content.clone()).collect::<Vec<String>>().join(",")
+        }
+        Err(e) => {
+            ic_cdk::trap(&e.to_string());
+        }
+    }
 }
 
 #[ic_cdk::update]
