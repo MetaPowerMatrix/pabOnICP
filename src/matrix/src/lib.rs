@@ -159,6 +159,16 @@ async fn check_session_assets(id: String, session_key: String, file_name: String
 }
 
 #[ic_cdk::update]
+async fn query_session_files(id: String) -> Vec<String> {
+    _must_initialized();
+
+    match MetaPowerMatrixControllerService::default().list_files() {
+        Ok(data) => data,
+        Err(err) => ic_cdk::trap(&err.to_string()),
+    }
+}
+
+#[ic_cdk::update]
 async fn query_session_assets(id: String, session_key: String, file_name: String) -> Vec<u8> {
     _must_initialized();
 

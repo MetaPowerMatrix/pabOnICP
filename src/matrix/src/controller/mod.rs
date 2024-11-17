@@ -1,18 +1,18 @@
 use anyhow::{anyhow, Error};
-use candid::{CandidType, Principal};
+use candid::Principal;
 use ic_stable_structures::DefaultMemoryImpl;
-use serde::Serialize;
 use stable_fs::fs::{FdStat, FileSystem, OpenFlags};
 use stable_fs::storage::stable::StableStorage;
 use std::cell::RefCell;
 use std::fmt::Write;
+use std::str::FromStr;
 use crate::{
     CreateRequest, CreateResonse, LoginRequest,
     CALLEE,
 };
 use ic_cdk::api::call::call;
 use metapower_framework::dao::sqlite::MetapowerSqlite3;
-use metapower_framework::{get_now_secs, PatoInfo, SimpleResponse};
+use metapower_framework::{PatoInfo, SimpleResponse};
 
 thread_local! {
     static FS: RefCell<FileSystem> = {
@@ -126,13 +126,12 @@ impl MetaPowerMatrixControllerService {
 
     pub fn save_session_assets(&self, id: String, session: String, file_name: String, data: Vec<u8>)
         -> Result<(), Error>{
-        let chat_session_message_file = format!(
-            "ai/gen/{}/{}/{}",
-            id, session, file_name
-        );
+        let dirs = format!("ai/gen/{}/{}", id, session);
         let root_fd = FS.with(|fs| fs.borrow_mut().root_fd());
+        let dir = self.create_dir(root_fd, dirs)?;
+
         match FS.with(|fs|{
-            match fs.borrow_mut().open_or_create(root_fd, &chat_session_message_file, 
+            match fs.borrow_mut().open_or_create(dir, &file_name, 
                 FdStat::default(), OpenFlags::CREATE|OpenFlags::TRUNCATE, 0){
                 Ok(fd) => Ok(fd),
                 Err(e) => Err(anyhow!("{:?}", e)),
@@ -156,14 +155,13 @@ impl MetaPowerMatrixControllerService {
 
     pub fn get_session_assets(&self, id: String, session: String, file_name: String) -> Result<Vec<u8>, Error>
     {
-        let chat_session_message_file = format!(
-            "ai/gen/{}/{}/{}",
-            id, session, file_name
-        );
+        let dirs = format!("ai/gen/{}/{}", id, session);
         let root_fd = FS.with(|fs| fs.borrow_mut().root_fd());
+        let dir = self.create_dir(root_fd, dirs)?;
+
         let mut data: Vec<u8> = vec![];
         match FS.with(|fs|{
-            match fs.borrow_mut().open_or_create(root_fd, &chat_session_message_file, 
+            match fs.borrow_mut().open_or_create(dir, &file_name, 
             FdStat::default(),OpenFlags::empty(), 0){
                 Ok(fd) => Ok(fd),
                 Err(e) => Err(anyhow!("{:?}", e)),
@@ -183,6 +181,82 @@ impl MetaPowerMatrixControllerService {
         }
 
         Ok(data)
+    }
+
+    pub fn list_files(&self) -> Result<Vec<String>, Error> {
+        let mut res = vec![];
+        let path: &str = "/";
+        let root_fd = FS.with(|fs| fs.borrow_mut().root_fd());
+        let fd = FS.with(|fs|{
+            let fd = fs.borrow_mut().open_or_create(root_fd, path, FdStat::default(), OpenFlags::DIRECTORY, 0).unwrap();
+            fd
+        });
+        let mut entry_index = FS.with(|fs|{
+            let meta = fs.borrow_mut().metadata(fd).unwrap();
+            meta.first_dir_entry
+        });
+
+        while let Some(index) = entry_index {
+            let entry = FS.with(|fs|{
+                fs.borrow_mut().get_direntry(fd, index).unwrap()
+            });
+
+            let filename_str: &str =
+                std::str::from_utf8(&entry.name.bytes[0..(entry.name.length as usize)]).unwrap();
+
+            let st = String::from_str(filename_str).unwrap();
+
+            res.push(st);
+
+            entry_index = entry.next_entry;
+        }
+
+        Ok(res)
+    }
+    fn create_dir(&self, root_fd: u32, dirs: String) -> Result<u32, Error>{
+        let path = dirs.split("/").collect::<Vec<&str>>();
+        let mut last_dir = root_fd;
+
+        for dir_name in path {
+            match FS.with(|fs| {
+                match fs.borrow_mut().create_dir(last_dir, dir_name, FdStat::default(), 0){
+                    Ok(dir) => Ok(dir),
+                    Err(e) => Err(anyhow!("{:?}", e)),
+                }
+            }){
+                Ok(dir) => last_dir = dir,
+                Err(e) => return Err(anyhow!("{:?}", e)),
+            }
+        }
+
+        Ok(last_dir)
+        // let dir = fs
+        //     .open_or_create(
+        //         fs.root_fd(),
+        //         "test",
+        //         FdStat::default(),
+        //         OpenFlags::empty(),
+        //         0,
+        //     )
+        //     .unwrap();
+    }
+    fn open_dir(&self, root_fd: u32, dirs: String) -> Result<u32, Error>{
+        let path = dirs.split("/").collect::<Vec<&str>>();
+        let mut last_dir = root_fd;
+
+        for dir_name in path {
+            match FS.with(|fs| {
+                match fs.borrow_mut().open_or_create(last_dir,dir_name,FdStat::default(),OpenFlags::empty(),0){
+                    Ok(dir) => Ok(dir),
+                    Err(e) => Err(anyhow!("{:?}", e)),
+                }
+            }){
+                Ok(dir) => last_dir = dir,
+                Err(e) => return Err(anyhow!("{:?}", e)),
+            }
+        }
+
+        Ok(last_dir)
     }
 
 }
