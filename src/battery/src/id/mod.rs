@@ -37,7 +37,7 @@ impl MetaPowerMatrixBatteryService {
         let (result,): (Option<Vec<PlainDoc>>,) = match call(
             callee,
             "search",
-            (request,),
+            (request,2,),
         )
         .await
         {
