@@ -157,7 +157,7 @@ impl MetaPowerMatrixControllerService {
     {
         let dirs = format!("ai/gen/{}/{}", id, session);
         let root_fd = FS.with(|fs| fs.borrow_mut().root_fd());
-        let dir = self.create_dir(root_fd, dirs)?;
+        let dir = self.open_dir(root_fd, dirs)?;
 
         let mut data: Vec<u8> = vec![];
         match FS.with(|fs|{
