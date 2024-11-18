@@ -377,29 +377,6 @@ fn request_topic_chat_his(
     }
 }
 
-#[ic_cdk::update]
-async fn request_room_create(
-    owner: String,
-    title: String,
-    description: String,
-    town: String,
-) -> Result<RoomCreateResponse, String> {
-    _must_initialized();
-    let request = RoomCreateRequest {
-        owner,
-        title,
-        description,
-        town,
-    };
-    match MetaPowerMatrixAgentService::new()
-        .request_create_room(request)
-        .await
-    {
-        Ok(response) => Ok(response),
-        Err(err) => Err(err.to_string()),
-    }
-}
-
 #[ic_cdk::query]
 fn request_room_list(id: String) -> Result<RoomListResponse, String> {
     _must_initialized();

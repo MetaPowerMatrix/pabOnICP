@@ -7,7 +7,7 @@ use anyhow::{anyhow, Error};
 use crate::{AnswerReply, BestTalkRequest, SomeDocs};
 
 const HTTP_CYCLE_COST: u128 = 1491400000;
-const METAPOWER_PROXY_HOST: &str = "api.metapowermatrix.ai";
+const METAPOWER_PROXY_HOST: &str = "icp.metapowermatrix.ai";
 const BSC_PROXY_HOST: &str = "icp.metapowermatrix.ai";
 const LLM_PROXY_HOST: &str = "llm.metapowermatrix.ai";
 const LLM_REQUEST_PROTOCOL: &str = "https://";

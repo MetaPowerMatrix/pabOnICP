@@ -1,16 +1,14 @@
 use anyhow::{anyhow, Error};
 use candid::Principal;
 use ic_cdk::call;
-use metapower_framework::dao::crawler::download_image;
-use metapower_framework::dao::http::{send_http_post_request, LLMSvcClient};
+use metapower_framework::dao::http::send_http_post_request;
 use metapower_framework::{
     dao::sqlite::MetapowerSqlite3, log, read_and_writeback_json_file, ChatMessage, AI_PATO_DIR,
 };
 use metapower_framework::{
-    AirdropRequest, ChangeBalanceRequest, EmptyRequest, FollowKolRequest, ImageGenRequest,
-    ImageGenResponse, InjectHumanVoiceRequest, KolRegistrationRequest,
+    AirdropRequest, ChangeBalanceRequest, EmptyRequest, FollowKolRequest, InjectHumanVoiceRequest, KolRegistrationRequest,
     KolRelations, MessageRequest, NamePros, NameRequest, NameResponse, PatoInfo, PatoInfoResponse,
-    PopulationRegistrationRequest, ProfessionalsResponse, RoomCreateRequest, RoomCreateResponse,
+    PopulationRegistrationRequest, ProfessionalsResponse,
     RoomInfo, RoomListResponse, SimpleRequest, SimpleResponse, TokenRequest, TokenResponse,
     TopicChatHisResponse, TopicChatRequest, UserActiveRequest,
 };
@@ -571,71 +569,6 @@ impl MetaPowerMatrixAgentService {
 
         Ok(TopicChatHisResponse {
             history: chat_messages,
-        })
-    }
-
-    pub async fn request_create_room(
-        &self,
-        request: RoomCreateRequest,
-    ) -> std::result::Result<RoomCreateResponse, Error> {
-        let game_room_table = "CREATE TABLE IF NOT EXISTS game_room (
-            sn INTEGER PRIMARY KEY AUTOINCREMENT,
-            registered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            owner TEXT NOT NULL,
-            room_id TEXT NOT NULL,
-            title TEXT NOT NULL,
-            description TEXT NOT NULL,
-            cover TEXT NOT NULL,
-            town TEXT NOT NULL
-        )";
-        let owner = request.owner.clone();
-        let title = request.title.clone();
-        let town = request.town.clone();
-        let description = request.description.clone();
-        let (bytes,): (Vec<u8>,) =
-            ic_cdk::api::call::call(Principal::management_canister(), "raw_rand", ())
-                .await
-                .unwrap_or_default();
-        let room_id = bytes
-            .iter()
-            .map(|b| format!("{:02x}", b))
-            .collect::<String>();
-        let (bytes,): (Vec<u8>,) =
-            ic_cdk::api::call::call(Principal::management_canister(), "raw_rand", ())
-                .await
-                .unwrap_or_default();
-        let mut xfiles_link = String::default();
-
-        let prompt = format!(
-            "draw a picture according to the description below: {}",
-            description
-        );
-        let image_request = ImageGenRequest { prompt };
-        match LLMSvcClient::default()
-            .call_llm_proxy::<ImageGenRequest, ImageGenResponse>("api/gen/image", image_request)
-            .await
-        {
-            Ok(answer) => match download_image(owner.clone(), &answer.image_url, "room_cover.png".to_string()).await {
-                Ok(xfile) => xfiles_link = xfile,
-                Err(e) => {
-                    return Err(e);
-                }
-            },
-            Err(e) => {
-                return Err(e);
-            }
-        }
-
-        MetapowerSqlite3::new().create_table(game_room_table.to_owned())?;
-        let new_game_room = "INSERT INTO game_room (owner, room_id, title, description, cover, town) VALUES (?1, ?2, ?3, ?4, ?5, ?6)";
-        MetapowerSqlite3::new().insert_record(
-            new_game_room,
-            &[&owner, &room_id, &title, &description, &xfiles_link, &town],
-        )?;
-
-        Ok(RoomCreateResponse {
-            room_id,
-            cover: xfiles_link,
         })
     }
 

@@ -33,14 +33,13 @@ impl MetaPowerMatrixBatteryService {
 
     pub async fn talk(&self, query: Vec<f32>) -> std::result::Result<Vec<PlainDoc>, Error> {
         let request = VecQuery::Embeddings(query);
+        let count: usize = 2;
         let callee = VECTOR_CALLEE.with(|callee| *callee.borrow().as_ref().unwrap());
         let (result,): (Option<Vec<PlainDoc>>,) = match call(
             callee,
             "search",
-            (request,2 as usize,),
-        )
-        .await
-        {
+            (request, count,),
+        ).await{
             Ok(result) => result,
             Err((code, msg)) => return Err(anyhow!("{}: {}", code as u8, msg)),
         };
