@@ -11,10 +11,9 @@ Highlight some features:
 - 话题社交。
 - 和不同的AI角色聊天。
 - 和不同的真人角色聊天。
+ 
 
-Adding an illustration of the architecture can quickly explain how the project is built, and how it works. 
-
-![Illustration Example](local-workflow.png)
+[架构图](https://github.com/MetaPowerMatrix/pabOnICP/blob/master/MetaPowerICP%E6%9E%B6%E6%9E%84%E5%9B%BE.jpg)
 
 ## Installation
 
