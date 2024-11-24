@@ -1,6 +1,6 @@
 pub mod gen;
 
-pub static mut PREDEFINED_TAGS: &str = r#"
+pub static PREDEFINED_TAGS: &str = r#"
     [
         "完美主义者",
         "干饭人干饭魂",

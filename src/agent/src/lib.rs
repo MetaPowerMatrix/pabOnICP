@@ -7,11 +7,9 @@ use ic_stable_structures::memory_manager::{MemoryId, MemoryManager as MM, Virtua
 use ic_stable_structures::{DefaultMemoryImpl, RestrictedMemory, StableBTreeMap};
 use metapower_framework::prompt::PREDEFINED_TAGS;
 use metapower_framework::{
-    get_now_date_str, get_now_secs, AirdropRequest, ChangeBalanceRequest, FollowKolRequest,
-    InjectHumanVoiceRequest, KolRegistrationRequest, KolRelations, NameRequest, NameResponse,
-    PatoInfo, PatoInfoResponse, PopulationRegistrationRequest, RoomCreateRequest,
-    RoomCreateResponse, RoomListResponse, SimpleRequest, SimpleResponse, TokenRequest,
-    TokenResponse, TopicChatHisResponse, TopicChatRequest,
+    get_now_date_str, get_now_secs, AirdropRequest, ChangeBalanceRequest, FollowKolRequest, KolRegistrationRequest, KolRelations, NameRequest, NameResponse,
+    PatoInfo, PatoInfoResponse, PopulationRegistrationRequest, SimpleRequest, SimpleResponse, TokenRequest,
+    TokenResponse,
 };
 use smith::MetaPowerMatrixAgentService;
 use std::cell::RefCell;
@@ -246,13 +244,11 @@ fn request_all_patos() -> Vec<PatoInfo> {
 fn request_predefined_tags() -> String {
     _must_initialized();
 
-    unsafe {
-        let tags = USER_DEFINED_TAGS.with(|v| v.borrow().clone());
-        if tags.is_empty() {
-            PREDEFINED_TAGS.to_string()
-        } else {
-            tags
-        }
+    let tags = USER_DEFINED_TAGS.with(|v| v.borrow().clone());
+    if tags.is_empty() {
+        PREDEFINED_TAGS.to_string()
+    } else {
+        tags
     }
 }
 
@@ -296,20 +292,6 @@ async fn request_minus_balance(id: String, amount: f32) {
     }
 }
 
-#[ic_cdk::update]
-fn request_inject_human_voice(id: String, roles: Vec<String>, session: String, message: String) {
-    _must_initialized();
-    let request = InjectHumanVoiceRequest {
-        id,
-        roles,
-        session,
-        message,
-    };
-    if let Err(e) = MetaPowerMatrixAgentService::new().request_inject_human_voice(request) {
-        ic_cdk::trap(&e.to_string())
-    }
-}
-
 #[ic_cdk::query]
 async fn query_pato_kol_token(token: String) -> TokenResponse {
     _must_initialized();
@@ -340,50 +322,6 @@ async fn request_pato_kol_token(id: String) -> SimpleResponse {
     {
         Ok(response) => response,
         Err(err) => ic_cdk::trap(&err.to_string()),
-    }
-}
-
-#[ic_cdk::update]
-async fn request_topic_chat(initial: String, topic: String, town: String) {
-    _must_initialized();
-    let request = TopicChatRequest {
-        initial,
-        topic,
-        town,
-    };
-    if let Err(e) = MetaPowerMatrixAgentService::new()
-        .request_topic_chat(request)
-        .await
-    {
-        ic_cdk::trap(&e.to_string())
-    }
-}
-
-#[ic_cdk::query]
-fn request_topic_chat_his(
-    initial: String,
-    topic: String,
-    town: String,
-) -> Result<TopicChatHisResponse, String> {
-    _must_initialized();
-    let request = TopicChatRequest {
-        initial,
-        topic,
-        town,
-    };
-    match MetaPowerMatrixAgentService::new().request_topic_chat_history(request) {
-        Ok(response) => Ok(response),
-        Err(err) => Err(err.to_string()),
-    }
-}
-
-#[ic_cdk::query]
-fn request_room_list(id: String) -> Result<RoomListResponse, String> {
-    _must_initialized();
-    let request = SimpleRequest { id };
-    match MetaPowerMatrixAgentService::new().request_game_room_list(request) {
-        Ok(response) => Ok(response),
-        Err(err) => Err(err.to_string()),
     }
 }
 
