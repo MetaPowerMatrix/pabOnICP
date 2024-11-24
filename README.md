@@ -1,11 +1,10 @@
 # 原力小镇
 - 构建一个AI驱动的在ICP网络上运行的社交应用
 - 验证ICP网络运行社交应用的可行性
-- How does it look like in action? Have any screenshots, videos etc.?
 -[ Web App访问地址](https://tsoel-7yaaa-aaaai-alcva-cai.icp0.io/)
 
 ## Introduction
-This is a high level description of the project. Describe what the project is for, what it is doing and which problem it solves. This should not be long, usually 2-3 lines is good, keep it short and precise.
+PartyBoard原力小镇项目部署在ICP网络上的三个服务的代码，matrix，agent和battery，编译部署成三个canister
 
 Highlight some features:
 - 话题社交。
@@ -44,7 +43,7 @@ $ dfx canister call agent request_all_patos
 ```
 
 ## Documentation
-Party Board的三个服务，matrix，agent和battery在ICP网络上的实现，编译部署成三个canister
+PartyBoard原力小镇项目部署在ICP网络上的三个服务的代码，matrix，agent和battery，编译部署成三个canister
 
 ## Roadmap
 Describe the project roadmap, this could be the grant milestones, but it could also be the team's broader project roadmap.
