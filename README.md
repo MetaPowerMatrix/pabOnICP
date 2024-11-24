@@ -36,8 +36,7 @@ $ dfx deploy --network ic
 ## Usage
 部署完成之后，可以通过web界面访问canister的接口，也可以使用dfx工具反问接口
 
-### Example 1
-Usage examples can be canister calls:
+### 接口访问例子
 
 ```bash
 $ dfx canister call matrix hi
@@ -45,7 +44,7 @@ $ dfx canister call agent request_all_patos
 ```
 
 ## Documentation
-Further documentation can exist in the README file if the project only contains a few functions. It can also be located elsewhere, if it is extensive, if this is the case, link to it.  
+Party Board的三个服务，matrix，agent和battery在ICP网络上的实现，编译部署成三个canister
 
 ## Roadmap
 Describe the project roadmap, this could be the grant milestones, but it could also be the team's broader project roadmap.
@@ -64,7 +63,3 @@ This project is licensed under the MIT license, see LICENSE.md for details. See 
 ## References
 - [Internet Computer](https://internetcomputer.org)
 
-
-
-
-Party Board的三个服务，matrix，agent和battery在ICP网络上的实现，编译部署成三个canister
