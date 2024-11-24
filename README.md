@@ -6,12 +6,24 @@
 ## Introduction
 PartyBoard原力小镇项目部署在ICP网络上的三个服务的代码，matrix，agent和battery，编译部署成三个canister
 
-Highlight some features:
+Highlight Features:
 - 话题社交。
 - 和不同的AI角色聊天。
 - 和不同的真人角色聊天。
  
+## Achievement
+1. offchain访问onchain服务的参数编码问题
+2. 使用了wasm版本的rusqlite-ic,ic-sqlite包实现sqlite数据存储的和之前版本的兼容
+3. 使用了onchain的随机数生成服务保证之前服务中大量的UUID生成的兼容性
+3. 使用stable_structure持久化用户私有数据的问题，保证canister升级时的数据升级
+4. 使用stable_fs的文件操作和传统文件操作流程有差异，完成了通用访问函数的编写实现打开目录，遍历目录，读写文件等
+5. 在使用outgress http调用的时候，通过proxy返回简单一致数据保证共识达成，并升级服务支持ipv6
+6. 部署了ICP上的Vector Database canister用于用户数据embeddings的存储和查询，给社区提供一个将来规模足够大的AI训练和语料库用于训练和RAG
+7. 实现了在ICP上运行的AI社交dAPP，并初步集成进来了发行在BSC上的PAB token
+
+
 ![架构图](https://github.com/MetaPowerMatrix/pabOnICP/blob/master/MetaPowerICP%E6%9E%B6%E6%9E%84%E5%9B%BE.jpg)
+
 
 ## Installation
 
@@ -41,9 +53,6 @@ $ dfx deploy --network ic
 $ dfx canister call matrix hi
 $ dfx canister call agent request_all_patos
 ```
-
-## Documentation
-PartyBoard原力小镇项目部署在ICP网络上的三个服务的代码，matrix，agent和battery，编译部署成三个canister
 
 ## Roadmap
 Describe the project roadmap, this could be the grant milestones, but it could also be the team's broader project roadmap.
