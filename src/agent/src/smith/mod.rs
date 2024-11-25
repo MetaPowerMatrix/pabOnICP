@@ -16,27 +16,6 @@ use std::collections::HashMap;
 
 use crate::{BATTERY, BATTERY_CALLEE};
 
-//TO-DO-IC-Storage
-fn generate_prompt(curr_input: Vec<String>, prompt: String) -> String {
-    let mut result = prompt;
-
-    for (count, input) in curr_input.iter().enumerate() {
-        result = result.replace(&format!("!<INPUT {}>!", count), input);
-    }
-
-    // Remove the comment block marker if present
-    if result.contains("<commentblockmarker>###</commentblockmarker>") {
-        result = result
-            .split("<commentblockmarker>###</commentblockmarker>")
-            .nth(1)
-            .unwrap_or_default()
-            .to_string();
-    }
-
-    // Return the final prompt
-    result.trim().to_string()
-}
-
 #[derive(Debug)]
 pub struct MetaPowerMatrixAgentService {
     id: String,
