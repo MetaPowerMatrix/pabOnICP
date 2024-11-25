@@ -11,7 +11,6 @@ use crate::{
     CALLEE,
 };
 use ic_cdk::api::call::call;
-use metapower_framework::dao::sqlite::MetapowerSqlite3;
 use metapower_framework::{PatoInfo, SimpleResponse};
 
 thread_local! {
@@ -27,16 +26,16 @@ pub struct MetaPowerMatrixControllerService {}
 
 impl MetaPowerMatrixControllerService {
     fn create_pato_db(&self) -> Result<(), Error> {
-        let message_table = "CREATE TABLE IF NOT EXISTS chat_message (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            session TEXT NOT NULL,
-            sender TEXT NOT NULL,
-            receiver TEXT NOT NULL,
-            message TEXT NOT NULL
-        )";
+        // let message_table = "CREATE TABLE IF NOT EXISTS chat_message (
+        //     id INTEGER PRIMARY KEY AUTOINCREMENT,
+        //     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        //     session TEXT NOT NULL,
+        //     sender TEXT NOT NULL,
+        //     receiver TEXT NOT NULL,
+        //     message TEXT NOT NULL
+        // )";
 
-        MetapowerSqlite3::new().create_table(message_table.to_owned())?;
+        // MetapowerSqlite3::new().create_table(message_table.to_owned())?;
 
         Ok(())
     }
