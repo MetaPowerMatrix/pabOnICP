@@ -25,20 +25,6 @@ thread_local! {
 pub struct MetaPowerMatrixControllerService {}
 
 impl MetaPowerMatrixControllerService {
-    fn create_pato_db(&self) -> Result<(), Error> {
-        // let message_table = "CREATE TABLE IF NOT EXISTS chat_message (
-        //     id INTEGER PRIMARY KEY AUTOINCREMENT,
-        //     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        //     session TEXT NOT NULL,
-        //     sender TEXT NOT NULL,
-        //     receiver TEXT NOT NULL,
-        //     message TEXT NOT NULL
-        // )";
-
-        // MetapowerSqlite3::new().create_table(message_table.to_owned())?;
-
-        Ok(())
-    }
     async fn prepare_pato_db(&self, id: String, name: String) -> Result<i64, String> {
         let mut sn = 0;
         let callee = CALLEE.with(|callee| *callee.borrow().as_ref().unwrap());
@@ -89,10 +75,6 @@ impl MetaPowerMatrixControllerService {
             write!(acc, "{:02x}", a).unwrap_or_default();
             acc
         });
-
-        if let Err(e) = self.create_pato_db() {
-            return Err(anyhow!("message数据库创建失败: {}", e));
-        }
 
         match self
             .prepare_pato_db(pato_id.clone(), request.name.clone())
