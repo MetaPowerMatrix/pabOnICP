@@ -15,7 +15,7 @@ type VM = VirtualMemory<RM>;
 static INITIAL_CANISTER_BALANCE: AtomicU64 = AtomicU64::new(0);
 static CYCLES_USED: AtomicU64 = AtomicU64::new(0);
 
-const METADATA_PAGES: u64 = 64;
+const METADATA_PAGES: u64 = 16;
 
 thread_local! {
     /// The global vector to keep multiple timer IDs.
