@@ -5,7 +5,7 @@ use std::cell::RefCell;
 use candid::{CandidType, Principal};
 use controller::MetaPowerMatrixControllerService;
 use ic_cdk::{caller, id};
-use metapower_framework::{PatoInfo, MAX_SAVE_BYTES};
+use metapower_framework::PatoInfo;
 use serde::Deserialize;
 
 #[derive(Deserialize, CandidType)]
@@ -60,9 +60,9 @@ static mut OWNER: Principal = Principal::anonymous();
 
 thread_local! {
     static MATRIX_NAME: RefCell<String> = RefCell::new("".to_string());
-}
-
-thread_local! {
+    static RULES: RefCell<String> = RefCell::new("".to_string());
+    static GENISIS: RefCell<String> = RefCell::new("".to_string());
+    static DESTINATION: RefCell<String> = RefCell::new("".to_string());
     static CALLEE: RefCell<Option<Principal>> = const { RefCell::new(None) };
 }
 
@@ -94,6 +94,18 @@ fn initialize(name: String) -> Result<(), ()> {
        MATRIX_NAME.with(|matrix| {
         *matrix.borrow_mut() = name;
        });
+
+       GENISIS.with(|v| {
+        *v.borrow_mut() = "In the beginning, the world was in chaos, and the Creator God decided to open up a new era of the universe, so the first batch of silicon-based electronic life, Pato, was born.".to_string();
+       });
+
+       RULES.with(|v| {
+        *v.borrow_mut() = "To collect as many tokens as possible, the speed of light is the fastest and constant".to_string();
+       });
+
+       DESTINATION.with(|v| {
+        *v.borrow_mut() = "create and dead, long live universe".to_string();
+       });
    }
 
    Ok(())
@@ -105,6 +117,27 @@ pub fn hi() -> String{
     unsafe {
         format!("Hi, current matrix is {}({}) controlled by {};", MATRIX_NAME.take(), id(), OWNER)
     }
+}
+
+#[ic_cdk::query]
+pub fn rules() -> String{
+    _must_initialized();
+    
+    RULES.take()
+}
+
+#[ic_cdk::query]
+pub fn destination() -> String{
+    _must_initialized();
+    
+    DESTINATION.take()
+}
+
+#[ic_cdk::query]
+pub fn genisis() -> String{
+    _must_initialized();
+    
+    GENISIS.take()
 }
 
 #[ic_cdk::update]

@@ -22,6 +22,7 @@ type RM = RestrictedMemory<DefaultMemoryImpl>;
 type VM = VirtualMemory<RM>;
 
 const BATTERY_MEM_ID: MemoryId = MemoryId::new(0);
+const BILLBOARD_MEM_ID: MemoryId = MemoryId::new(1);
 const METADATA_PAGES: u64 = 256;
 
 thread_local! {
@@ -32,6 +33,10 @@ thread_local! {
     static BATTERY_CALLEE: RefCell<StableBTreeMap<String, String, VM>> =
         MEMORY_MANAGER.with(|mm| {
             RefCell::new(StableBTreeMap::init(mm.borrow().get(BATTERY_MEM_ID)))
+        });
+    static BILLBOARD: RefCell<StableBTreeMap<String, String, VM>> =
+        MEMORY_MANAGER.with(|mm| {
+            RefCell::new(StableBTreeMap::init(mm.borrow().get(BILLBOARD_MEM_ID)))
         });
     static USER_DEFINED_TAGS: RefCell<String> =  RefCell::new("".to_string());
     static BATTERY: RefCell<Option<Principal>> = const { RefCell::new(None) };
@@ -88,6 +93,19 @@ pub fn hi() -> String {
             MetaPowerMatrixAgentService::default().request_pato_count()
         )
     }
+}
+
+#[ic_cdk::query]
+pub fn billboard() -> String {
+    _must_initialized();
+    
+    BILLBOARD.with(|billboard| {
+        let mut result = "".to_string();
+        for (k, v) in billboard.borrow().iter() {
+            result.push_str(&format!("{}: {}\n", k, v));
+        }
+        result
+    })
 }
 
 #[ic_cdk::query]

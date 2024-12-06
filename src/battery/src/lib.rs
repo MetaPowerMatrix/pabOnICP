@@ -52,6 +52,12 @@ const BATTERY_AVATAR_MEM_ID: MemoryId = MemoryId::new(1);
 const BATTERY_CHARACTER_MEM_ID: MemoryId = MemoryId::new(2);
 const BATTERY_COVER_MEM_ID: MemoryId = MemoryId::new(3);
 const BATTERY_SESSION_MEM_ID: MemoryId = MemoryId::new(4);
+const BATTERY_POWER_MEM_ID: MemoryId = MemoryId::new(5);
+const BATTERY_FOLLOWERS_MEM_ID: MemoryId = MemoryId::new(6);
+const BATTERY_FOLLOWING_MEM_ID: MemoryId = MemoryId::new(7);
+const BATTERY_TOPICS_MEM_ID: MemoryId = MemoryId::new(8);
+const BATTERY_SUB_TOPICS_MEM_ID: MemoryId = MemoryId::new(9);
+
 const METADATA_PAGES: u64 = 1024;
 
 thread_local! {
@@ -88,7 +94,28 @@ thread_local! {
             RefCell::new(StableBTreeMap::init(mm.borrow().get(BATTERY_SESSION_MEM_ID)))
         });
 
-    static POWER: RefCell<Vec<u64>> = const { RefCell::new(vec![]) };
+    static BATTERY_POWER: RefCell<StableBTreeMap<String, u64, VM>> =
+        MEMORY_MANAGER.with(|mm| {
+            RefCell::new(StableBTreeMap::init(mm.borrow().get(BATTERY_POWER_MEM_ID)))
+        });
+
+    static BATTERY_FOLLOWERS: RefCell<StableBTreeMap<String, String, VM>> =
+        MEMORY_MANAGER.with(|mm| {
+            RefCell::new(StableBTreeMap::init(mm.borrow().get(BATTERY_FOLLOWERS_MEM_ID)))
+        });
+
+    static BATTERY_FOLLOWING: RefCell<StableBTreeMap<String, String, VM>> =
+        MEMORY_MANAGER.with(|mm| {
+            RefCell::new(StableBTreeMap::init(mm.borrow().get(BATTERY_FOLLOWING_MEM_ID)))
+        });
+    static BATTERY_TOPICS: RefCell<StableBTreeMap<String, String, VM>> =
+        MEMORY_MANAGER.with(|mm| {
+            RefCell::new(StableBTreeMap::init(mm.borrow().get(BATTERY_TOPICS_MEM_ID)))
+        });
+    static BATTERY_SUB_TOPICS: RefCell<StableBTreeMap<String, String, VM>> =
+        MEMORY_MANAGER.with(|mm| {
+            RefCell::new(StableBTreeMap::init(mm.borrow().get(BATTERY_SUB_TOPICS_MEM_ID)))
+        });
 }
 
 fn _only_owner() {
@@ -136,12 +163,12 @@ fn init() {
 #[ic_cdk::update]
 fn initialize(matrix_canister: Principal, agent_canister: Principal, vector_canister: Principal) -> Result<(), ()> {
    unsafe {
-       if INITIALIZED {
-           ic_cdk::trap("initialized");
-       }
+        if INITIALIZED {
+            ic_cdk::trap("initialized");
+        }
 
-       OWNER = caller();
-       MATRIX_CALLEE.with(|callee| {
+        OWNER = caller();
+        MATRIX_CALLEE.with(|callee| {
             *callee.borrow_mut() = Some(matrix_canister);
         });
         AGENT_CALLEE.with(|callee| {
@@ -149,9 +176,6 @@ fn initialize(matrix_canister: Principal, agent_canister: Principal, vector_cani
         });
         VECTOR_CALLEE.with(|callee| {
             *callee.borrow_mut() = Some(vector_canister);
-        });
-        POWER.with(|p| {
-            p.borrow_mut().push(1000);
         });
 
         INITIALIZED = true;
@@ -239,6 +263,61 @@ pub fn session_of(id: String) -> String{
     sessions
 }
 
+#[ic_cdk::query]
+pub fn power_of(id: String) -> u64{
+    _must_initialized();
+
+    let power = BATTERY_POWER.with(|power| {
+        power.borrow().get(&id).unwrap_or_default()
+    });
+
+    power
+}
+
+#[ic_cdk::query]
+pub fn follower_of(id: String) -> String{
+    _must_initialized();
+
+    let followers = BATTERY_FOLLOWERS.with(|followers| {
+        followers.borrow().get(&id).unwrap_or_default()
+    });
+
+    followers
+}
+
+#[ic_cdk::query]
+pub fn following_of(id: String) -> String{
+    _must_initialized();
+
+    let following = BATTERY_FOLLOWING.with(|following| {
+        following.borrow().get(&id).unwrap_or_default()
+    });
+
+    following
+}
+
+#[ic_cdk::query]
+pub fn topics_of(id: String) -> String{
+    _must_initialized();
+
+    let topics = BATTERY_TOPICS.with(|topics| {
+        topics.borrow().get(&id).unwrap_or_default()
+    });
+
+    topics
+}
+
+#[ic_cdk::query]
+pub fn sub_topics_of(id: String) -> String{
+    _must_initialized();
+
+    let topics = BATTERY_SUB_TOPICS.with(|topics| {
+        topics.borrow().get(&id).unwrap_or_default()
+    });
+
+    topics
+}
+
 #[ic_cdk::update]
 pub fn set_tags_of(id: String, tags_submit: String){
     _must_initialized();
@@ -292,6 +371,62 @@ pub fn set_session_of(id: String, session_key: String){
         let prev = session_map.get(&id).unwrap_or_default();
         let updated = prev + "," + &session_key;
         session_map.insert(id.clone(), updated);
+    });
+
+}
+
+#[ic_cdk::update]
+pub fn set_power_of(id: String, new_power: u64){
+    _must_initialized();
+
+    BATTERY_POWER.with(|power_map| {
+        let mut power_map = power_map.borrow_mut();
+        power_map.insert(id.clone(), new_power);
+    });
+
+}
+
+#[ic_cdk::update]
+pub fn set_follower_of(id: String, follower: (String,String)){
+    _must_initialized();
+
+    BATTERY_FOLLOWERS.with(|follow_map| {
+        let mut follow_map = follow_map.borrow_mut();
+        let prev_json = follow_map.get(&id).unwrap_or_default();
+        let mut prev = serde_json::from_str::<Vec<(String,String)>>(&prev_json).unwrap_or_default();
+        prev.push(follower);
+        let update = serde_json::to_string(&prev).unwrap_or_default();
+        follow_map.insert(id.clone(), update);
+    });
+
+}
+
+#[ic_cdk::update]
+pub fn set_following_of(id: String, following: (String,String)){
+    _must_initialized();
+
+    BATTERY_FOLLOWING.with(|follow_map| {
+        let mut follow_map = follow_map.borrow_mut();
+        let prev_json = follow_map.get(&id).unwrap_or_default();
+        let mut prev = serde_json::from_str::<Vec<(String,String)>>(&prev_json).unwrap_or_default();
+        prev.push(following);
+        let update = serde_json::to_string(&prev).unwrap_or_default();
+        follow_map.insert(id.clone(), update);
+    });
+
+}
+
+#[ic_cdk::update]
+pub fn set_topics_of(id: String, following: (String,String)){
+    _must_initialized();
+
+    BATTERY_TOPICS.with(|topic_map| {
+        let mut topic_map = topic_map.borrow_mut();
+        let prev_json = topic_map.get(&id).unwrap_or_default();
+        let mut prev = serde_json::from_str::<Vec<(String,String)>>(&prev_json).unwrap_or_default();
+        prev.push(following);
+        let update = serde_json::to_string(&prev).unwrap_or_default();
+        topic_map.insert(id.clone(), update);
     });
 
 }
