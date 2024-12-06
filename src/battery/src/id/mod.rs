@@ -5,7 +5,6 @@ use ic_cdk::call;
 use metapower_framework::dao::http::{BSCSvcClient, LLMSvcClient, MetaPowerSvcClient};
 use metapower_framework::{DataResponse, SimpleResponse};
 use metapower_framework::{
-    log,
     BecomeKolRequest, ImageDescriptionRequest, ImageDescriptionResponse, JoinKolRoomRequest, SubmitTagsRequest, SvcImageDescriptionRequest,
     SvcImageDescriptionResponse,
 };
@@ -57,7 +56,7 @@ impl MetaPowerMatrixBatteryService {
         };
 
         let client = LLMSvcClient::default();
-        log!("sample image file url: {}", sample_image);
+        ic_cdk::println!("sample image file url: {}", sample_image);
         let image_description_request = ImageDescriptionRequest {
             image_url: sample_image,
         };
@@ -73,7 +72,7 @@ impl MetaPowerMatrixBatteryService {
                 resp.description = description;
             }
             Err(e) => {
-                log!("image_description_request AI is something wrong: {}", e);
+                ic_cdk::println!("image_description_request AI is something wrong: {}", e);
             }
         }
         Ok(resp)

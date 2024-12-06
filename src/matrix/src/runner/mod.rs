@@ -83,7 +83,10 @@ impl Default for MatrixRunner {
 
 impl MatrixRunner {
     fn increase_tick(&self) {
-        unsafe { SYSTEM_TICKS += 1 };
+        unsafe { 
+            SYSTEM_TICKS += 1;
+            ic_cdk::println!("increase system epoch {}", SYSTEM_TICKS);
+        }
     }
     
     pub fn run_loop(&self) {

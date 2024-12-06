@@ -87,6 +87,8 @@ thread_local! {
         MEMORY_MANAGER.with(|mm| {
             RefCell::new(StableBTreeMap::init(mm.borrow().get(BATTERY_SESSION_MEM_ID)))
         });
+
+    static POWER: RefCell<Vec<u64>> = const { RefCell::new(vec![]) };
 }
 
 fn _only_owner() {
@@ -147,6 +149,9 @@ fn initialize(matrix_canister: Principal, agent_canister: Principal, vector_cani
         });
         VECTOR_CALLEE.with(|callee| {
             *callee.borrow_mut() = Some(vector_canister);
+        });
+        POWER.with(|p| {
+            p.borrow_mut().push(1000);
         });
 
         INITIALIZED = true;
