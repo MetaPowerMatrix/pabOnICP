@@ -8,7 +8,7 @@ use ic_stable_structures::memory_manager::{MemoryId, MemoryManager as MM, Virtua
 use ic_stable_structures::{DefaultMemoryImpl, RestrictedMemory, StableBTreeMap};
 use metapower_framework::prompt::PREDEFINED_TAGS;
 use metapower_framework::{
-    get_now_date_str, get_now_secs, AirdropRequest, ChangeBalanceRequest, FollowKolRequest, KolRegistrationRequest, KolRelations, NameRequest, NameResponse,
+    get_now_date_str, get_now_secs, ChangeBalanceRequest, FollowKolRequest, KolRegistrationRequest, KolRelations, NameRequest, NameResponse,
     PatoInfo, PatoInfoResponse, PopulationRegistrationRequest, SimpleRequest, SimpleResponse, TokenRequest,
     TokenResponse,
 };
