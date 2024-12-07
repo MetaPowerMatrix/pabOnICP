@@ -24,7 +24,7 @@ type VM = VirtualMemory<RM>;
 
 const BATTERY_MEM_ID: MemoryId = MemoryId::new(0);
 const BILLBOARD_MEM_ID: MemoryId = MemoryId::new(1);
-const METADATA_PAGES: u64 = 256;
+const METADATA_PAGES: u64 = 300;
 
 thread_local! {
     static AGENT_NAME: RefCell<String> = RefCell::new("".to_string());
@@ -130,7 +130,7 @@ async fn request_airdrop(amount: f32, id: String) {
         amount,
         key: "key".to_string(),
     };
-    
+
     if let Err(e) = MetaPowerMatrixAgentService::new().request_add_balance(request).await {
         ic_cdk::trap(&e.to_string())
     }
