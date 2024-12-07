@@ -101,8 +101,9 @@ impl Default for MatrixRunner {
 impl MatrixRunner {
     fn increase_tick(&self) {
         SYSTEM_TICKS.with(|system_ticks| {
-            let ticks = system_ticks.borrow_mut();
-            let _ = system_ticks.borrow_mut().set(*ticks.get() + 1);
+            let mut ticks = system_ticks.borrow_mut();
+            let update = *ticks.get() + 1;
+            let _ = ticks.set(update);
         });
     }
     
