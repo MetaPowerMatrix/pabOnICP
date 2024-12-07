@@ -57,6 +57,7 @@ const BATTERY_FOLLOWERS_MEM_ID: MemoryId = MemoryId::new(6);
 const BATTERY_FOLLOWING_MEM_ID: MemoryId = MemoryId::new(7);
 const BATTERY_TOPICS_MEM_ID: MemoryId = MemoryId::new(8);
 const BATTERY_SUB_TOPICS_MEM_ID: MemoryId = MemoryId::new(9);
+const BATTERY_BALANCE_MEM_ID: MemoryId = MemoryId::new(10);
 
 const METADATA_PAGES: u64 = 1024;
 
@@ -115,6 +116,10 @@ thread_local! {
     static BATTERY_SUB_TOPICS: RefCell<StableBTreeMap<String, String, VM>> =
         MEMORY_MANAGER.with(|mm| {
             RefCell::new(StableBTreeMap::init(mm.borrow().get(BATTERY_SUB_TOPICS_MEM_ID)))
+        });
+    static BATTERY_BALANCE: RefCell<StableBTreeMap<String, f32, VM>> =
+        MEMORY_MANAGER.with(|mm| {
+            RefCell::new(StableBTreeMap::init(mm.borrow().get(BATTERY_BALANCE_MEM_ID)))
         });
 }
 
@@ -275,6 +280,17 @@ pub fn power_of(id: String) -> u64{
 }
 
 #[ic_cdk::query]
+pub fn balance_of(id: String) -> f32{
+    _must_initialized();
+
+    let balance = BATTERY_BALANCE.with(|balance| {
+        balance.borrow().get(&id).unwrap_or_default()
+    });
+
+    balance
+}
+
+#[ic_cdk::query]
 pub fn follower_of(id: String) -> String{
     _must_initialized();
 
@@ -308,11 +324,13 @@ pub fn topics_of(id: String) -> String{
 }
 
 #[ic_cdk::query]
-pub fn sub_topics_of(id: String) -> String{
+pub fn sub_topics_of(id: String, topic: String) -> String{
     _must_initialized();
 
+    let key = id + "/" + &topic;
+
     let topics = BATTERY_SUB_TOPICS.with(|topics| {
-        topics.borrow().get(&id).unwrap_or_default()
+        topics.borrow().get(&key).unwrap_or_default()
     });
 
     topics
@@ -387,6 +405,22 @@ pub fn set_power_of(id: String, new_power: u64){
 }
 
 #[ic_cdk::update]
+pub fn set_balance_of(id: String, new_b: f32){
+    _must_initialized();
+
+    BATTERY_BALANCE.with(|b_map| {
+        let mut b_map = b_map.borrow_mut();
+        let prev = b_map.get(&id).unwrap_or_default();
+        if new_b < 0.0 && prev < new_b {
+            ic_cdk::trap("balance not enough");
+        }
+        let update = prev + new_b;
+        b_map.insert(id.clone(), update);
+    });
+
+}
+
+#[ic_cdk::update]
 pub fn set_follower_of(id: String, follower: (String,String)){
     _must_initialized();
 
@@ -427,6 +461,21 @@ pub fn set_topics_of(id: String, following: (String,String)){
         prev.push(following);
         let update = serde_json::to_string(&prev).unwrap_or_default();
         topic_map.insert(id.clone(), update);
+    });
+}
+
+#[ic_cdk::update]
+pub fn set_sub_topics_of(id: String, topic: String, comment: String){
+    _must_initialized();
+
+    BATTERY_TOPICS.with(|topic_map| {
+        let mut topic_map = topic_map.borrow_mut();
+        let key = id + "/" + &topic;
+        let prev_json = topic_map.get(&key).unwrap_or_default();
+        let mut prev = serde_json::from_str::<Vec<String>>(&prev_json).unwrap_or_default();
+        prev.push(comment);
+        let update = serde_json::to_string(&prev).unwrap_or_default();
+        topic_map.insert(key, update);
     });
 
 }

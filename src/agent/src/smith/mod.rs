@@ -142,7 +142,39 @@ impl MetaPowerMatrixAgentService {
             Ok(response) => response,
             Err((code, msg)) => return Err(anyhow!("{}: {}", code as u8, msg)),
         };
+        let (followers_json,): (String,) = match call(
+            callee,
+            "follower_of",
+            (id.clone(),),
+        )
+        .await
+        {
+            Ok(response) => response,
+            Err((code, msg)) => return Err(anyhow!("{}: {}", code as u8, msg)),
+        };
+        let followers = serde_json::from_str::<Vec<(String,String)>>(&followers_json).unwrap_or_default();
+        let (following_json,): (String,) = match call(
+            callee,
+            "following_of",
+            (id.clone(),),
+        )
+        .await
+        {
+            Ok(response) => response,
+            Err((code, msg)) => return Err(anyhow!("{}: {}", code as u8, msg)),
+        };
+        let followings = serde_json::from_str::<Vec<(String,String)>>(&following_json).unwrap_or_default();
 
+        let (balance,): (f32,) = match call(
+            callee,
+            "balance_of",
+            (id.clone(),),
+        )
+        .await
+        {
+            Ok(response) => response,
+            Err((code, msg)) => return Err(anyhow!("{}: {}", code as u8, msg)),
+        };
 
         let mut pato_info: PatoInfoResponse = PatoInfoResponse::default();
         match MetapowerSqlite3::query_db(
@@ -160,29 +192,13 @@ impl MetaPowerMatrixAgentService {
                         name,
                         sn,
                         registered_datetime,
-                        balance: 0.0,
+                        balance,
                         tags: tags.split(',').map(|t| t.to_string()).collect(),
                         avatar: avatar_link,
                         cover,
+                        followers,
+                        followings,
                     };
-                }
-            }
-            Err(e) => {
-                return Err(e);
-            }
-        }
-
-        let select_balance_table = format!("select amount from balance where id = \"{}\"", id);
-        match MetapowerSqlite3::query_db(&select_balance_table, vec!["amount"]) {
-            Ok(records) => {
-                if !records.is_empty() {
-                    for record in records {
-                        pato_info.balance = record
-                            .get("amount")
-                            .unwrap()
-                            .parse::<f32>()
-                            .unwrap_or_default();
-                    }
                 }
             }
             Err(e) => {
@@ -217,50 +233,39 @@ impl MetaPowerMatrixAgentService {
         Ok(response)
     }
 
-    pub fn request_add_balance(
+    pub async fn request_add_balance(
         &self,
         request: ChangeBalanceRequest,
-    ) -> std::result::Result<SimpleResponse, Error> {
-        let amount = request.amount;
-        let id = request.id.clone();
-        let mut success = false;
+    ) -> std::result::Result<(), Error> {
 
-        let add_balance = format!(
-            "UPDATE balance SET amount = amount + {} WHERE id = \"{}\"",
-            amount, id
-        );
-
-        match MetapowerSqlite3::new().update_table(add_balance.clone()) {
-            Ok(_) => {
-                success = true;
-                log!("update {} success", add_balance);
-            }
-            Err(e) => {
-                log!("Error: {}", e);
-            }
-        }
-
-        let response = SimpleResponse {
-            success,
-            message: String::default(),
+        let callee = BATTERY.with(|callee| *callee.borrow().as_ref().unwrap());
+        match call(
+            callee,
+            "set_balance_of",
+            (request.id, request.amount),
+        ).await
+        {
+            Ok(()) => (),
+            Err((_, message)) => ic_cdk::trap(&message),
         };
-
-        Ok(response)
+    
+        Ok(())
     }
 
     pub async fn request_minus_balance(
         &self,
         request: ChangeBalanceRequest,
     ) -> std::result::Result<(), Error> {
-        let amount = request.amount;
-        let id = request.id.clone();
-
-        let add_balance = format!(
-            "UPDATE balance SET amount = amount - {} WHERE id = \"{}\"",
-            amount, id
-        );
-
-        MetapowerSqlite3::new().update_table(add_balance.clone())?;
+        let callee = BATTERY.with(|callee| *callee.borrow().as_ref().unwrap());
+        match call(
+            callee,
+            "set_balance_of",
+            (request.id, -request.amount),
+        ).await
+        {
+            Ok(()) => (),
+            Err((_, message)) => ic_cdk::trap(&message),
+        };
 
         Ok(())
     }

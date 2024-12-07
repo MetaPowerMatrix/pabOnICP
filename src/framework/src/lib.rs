@@ -188,6 +188,8 @@ pub struct PatoInfoResponse {
     pub tags: Vec<String>,
     pub avatar: String,
     pub cover: String,
+    pub followers: Vec<(String, String)>,
+    pub followings: Vec<(String, String)>,
 }
 
 #[derive(Deserialize, CandidType, Debug)]

@@ -2,6 +2,7 @@ pub mod runner;
 pub mod smith;
 
 use candid::Principal;
+use ic_cdk::call;
 use ic_cdk::{api::caller, id};
 use ic_stable_structures::memory_manager::{MemoryId, MemoryManager as MM, VirtualMemory};
 use ic_stable_structures::{DefaultMemoryImpl, RestrictedMemory, StableBTreeMap};
@@ -98,7 +99,7 @@ pub fn hi() -> String {
 #[ic_cdk::query]
 pub fn billboard() -> String {
     _must_initialized();
-    
+
     BILLBOARD.with(|billboard| {
         let mut result = "".to_string();
         for (k, v) in billboard.borrow().iter() {
@@ -121,18 +122,17 @@ pub fn setup_battery_canister(battery_canister: Principal) {
 }
 
 #[ic_cdk::update]
-async fn request_airdrop(amount: f32, id: String) -> SimpleResponse {
+async fn request_airdrop(amount: f32, id: String) {
     _must_initialized();
-    let request = AirdropRequest { id, amount };
 
-    match MetaPowerMatrixAgentService::new()
-        .request_airdrop(request)
-        .await
-    {
-        Ok(response) => response,
-        Err(err) => {
-            ic_cdk::trap(&err.to_string());
-        }
+    let request = ChangeBalanceRequest {
+        id,
+        amount,
+        key: "key".to_string(),
+    };
+    
+    if let Err(e) = MetaPowerMatrixAgentService::new().request_add_balance(request).await {
+        ic_cdk::trap(&e.to_string())
     }
 }
 
@@ -281,17 +281,18 @@ fn set_predefined_tags(tags: String) {
 }
 
 #[ic_cdk::update]
-fn request_plus_balance(id: String, amount: f32) -> Result<SimpleResponse, String> {
+async fn request_plus_balance(id: String, amount: f32) -> Result<(), String> {
     _must_initialized();
     let request = ChangeBalanceRequest {
         id,
         amount,
         key: "key".to_string(),
     };
-    match MetaPowerMatrixAgentService::new().request_add_balance(request) {
-        Ok(response) => Ok(response),
-        Err(err) => Err(err.to_string()),
+    if let Err(e) = MetaPowerMatrixAgentService::new().request_add_balance(request).await {
+        ic_cdk::trap(&e.to_string())
     }
+
+    Ok(())
 }
 
 #[ic_cdk::update]
@@ -380,6 +381,20 @@ async fn request_pato_by_ids(ids: Vec<String>) -> Result<NameResponse, String> {
 }
 
 #[ic_cdk::update]
+async fn descrease_battery_power(id: String, amount: u64) {
+    let callee = BATTERY.with(|callee| *callee.borrow().as_ref().unwrap());
+    match call(
+        callee,
+        "set_power_of",
+        (id.clone(), amount),
+    ).await
+    {
+        Ok(()) => (),
+        Err((_, message)) => ic_cdk::trap(&message),
+    };
+}
+
+#[ic_cdk::update]
 fn request_kol_registration(id: String) {
     _must_initialized();
     let request = KolRegistrationRequest {
@@ -412,15 +427,18 @@ fn request_kol_list() -> Vec<KolRelations> {
 }
 
 #[ic_cdk::update]
-async fn request_deposit(id: String, amount: f32, key: String) {
+async fn request_deposit(id: String, amount: f32) {
     _must_initialized();
-    let request = ChangeBalanceRequest { id, amount, key };
-    if let Err(e) = MetaPowerMatrixAgentService::new()
-        .request_deposit(request)
-        .await
+    let callee = BATTERY.with(|callee| *callee.borrow().as_ref().unwrap());
+    match call(
+        callee,
+        "set_balance_of",
+        (id.clone(), amount),
+    ).await
     {
-        ic_cdk::trap(&e.to_string());
-    }
+        Ok(()) => (),
+        Err((_, message)) => ic_cdk::trap(&message),
+    };
 }
 
 ic_cdk::export_candid!();
