@@ -59,7 +59,7 @@ const BATTERY_TOPICS_MEM_ID: MemoryId = MemoryId::new(8);
 const BATTERY_SUB_TOPICS_MEM_ID: MemoryId = MemoryId::new(9);
 const BATTERY_BALANCE_MEM_ID: MemoryId = MemoryId::new(10);
 
-const METADATA_PAGES: u64 = 1024;
+const METADATA_PAGES: u64 = 2048;
 
 thread_local! {
     static MATRIX_CALLEE: RefCell<Option<Principal>> = const { RefCell::new(None) };
