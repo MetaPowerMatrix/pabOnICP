@@ -46,7 +46,7 @@ impl MetaPowerMatrixControllerService {
         }
 
         let bonus_register = 100.0_f32;
-        let (_resp,): (SimpleResponse,) =
+        let (_resp,): ((),) =
             match call(callee, "request_airdrop", (bonus_register, id)).await {
                 Ok(response) => response,
                 Err((code, msg)) => return Err(format!("pato空投失败: {}: {}", code as u8, msg)),
