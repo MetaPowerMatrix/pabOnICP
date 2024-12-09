@@ -515,7 +515,6 @@ pub async fn comment_topic(id: String){
                 ic_cdk::println!("{}", e);
             }
         }
-        thread::sleep(std::time::Duration::from_secs(5));
     }
 }
 

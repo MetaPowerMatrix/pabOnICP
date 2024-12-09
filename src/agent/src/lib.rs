@@ -410,7 +410,6 @@ async fn descrease_battery_power(amount: u64) {
                 Ok(()) => (),
                 Err((_, message)) => ic_cdk::println!("comment_topic error: {}", message),
             }
-            thread::sleep(std::time::Duration::from_secs(5));
         }    
     });
 }
