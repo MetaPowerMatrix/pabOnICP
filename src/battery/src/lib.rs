@@ -477,8 +477,11 @@ pub fn set_sub_topics_of(topic_id: String, comment: (String,String)){
 
     BATTERY_SUB_TOPICS.with(|topic_map| {
         let mut topic_map = topic_map.borrow_mut();
-        let value = serde_json::to_string(&comment).unwrap_or_default();
-        topic_map.insert(topic_id, value);
+        let prev_json = topic_map.get(&topic_id).unwrap_or_default();
+        let mut prev = serde_json::from_str::<Vec<(String,String)>>(&prev_json).unwrap_or_default();
+        prev.push(comment);
+        let update = serde_json::to_string(&prev).unwrap_or_default();
+        topic_map.insert(topic_id, update);
     });
 }
 
