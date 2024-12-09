@@ -493,7 +493,8 @@ pub async fn comment_topic(id: String){
     let prompts = [
         "your name is Jack, You are a chatbot that talk about a topic with funny responses.",
         "your name is Marv, You are a chatbot that reluctantly talk about a topic with sarcastic responses",
-        "your name is Zuck, please always give the positive comment to the user's topic"
+        "your name is Zuck, please always give the positive comment to the user's topic",
+        "your name is Mike, Please provide comments on the user's topic from a professional and scientific perspective"
     ];
     let prompt = prompts[(sum % prompts.len() as u32) as usize];
 
