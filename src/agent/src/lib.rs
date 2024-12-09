@@ -369,6 +369,13 @@ async fn request_pato_name(id: String) -> String {
 }
 
 #[ic_cdk::query]
+async fn request_pato_names(ids: Vec<String>) -> Vec<(String,String)> {
+    _must_initialized();
+
+    MetaPowerMatrixAgentService::new().get_pato_names(ids)
+}
+
+#[ic_cdk::query]
 async fn request_pato_by_ids(ids: Vec<String>) -> Result<NameResponse, String> {
     _must_initialized();
     let request = NameRequest { id: ids };

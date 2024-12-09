@@ -47,6 +47,22 @@ impl MetaPowerMatrixAgentService {
         name
     }
 
+    pub fn get_pato_names(&self, ids: Vec<String>) -> Vec<(String,String)> {
+        let mut names: Vec<(String,String)> = vec![];
+        BATTERY_CALLEE.with(|v| {
+            let patos = v.borrow();
+            for id in ids{
+                if let Some(json_str) = patos.get(&id) {
+                    if let Ok(info) = serde_json::from_str::<PatoInfo>(&json_str) {
+                        names.push((info.id, info.name));
+                    }
+                }    
+            }
+        });
+
+        names
+    }
+
     pub async fn request_airdrop(
         &self,
         request: AirdropRequest,
