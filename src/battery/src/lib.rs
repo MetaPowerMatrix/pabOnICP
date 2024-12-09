@@ -500,11 +500,12 @@ pub async fn comment_topic(id: String){
     let svc =  MetaPowerMatrixBatteryService::new(id.clone());
     let mut topics: Vec<String> = vec![];
     BATTERY_FOLLOWING.with(|following_map| {
-        let followings = following_map.borrow();
+        let followings_json_str = following_map.borrow().get(&id).unwrap_or_default();
+        let followings = serde_json::from_str::<Vec<(String,String)>>(&followings_json_str).unwrap_or_default();
         // ic_cdk::println!("followings: {}", followings);
         for (following_id,_) in followings.iter(){
             BATTERY_TOPICS.with(|topic_map| {
-                if let Some(topic) = topic_map.borrow().get(&following_id){
+                if let Some(topic) = topic_map.borrow().get(following_id){
                     topics.push(topic);
                 }
             });
