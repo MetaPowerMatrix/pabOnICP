@@ -498,6 +498,7 @@ pub async fn comment_topic(id: String){
     let mut topics: Vec<String> = vec![];
     BATTERY_FOLLOWING.with(|following_map| {
         let followings = following_map.borrow();
+        // ic_cdk::println!("followings: {}", followings);
         for (following_id,_) in followings.iter(){
             BATTERY_TOPICS.with(|topic_map| {
                 if let Some(topic) = topic_map.borrow().get(&following_id){
@@ -508,12 +509,14 @@ pub async fn comment_topic(id: String){
     });
 
     for topic in topics{
-        let topic_info = serde_json::from_str::<(String,String)>(&topic).unwrap_or_default();
-        match svc.request_comment_topic(topic_info.0, prompt.to_string(), id.clone()).await{
-            Ok(_) => (),
-            Err(e) => {
-                ic_cdk::println!("{}", e);
-            }
+        let all_topics = serde_json::from_str::<Vec<(String,String)>>(&topic).unwrap_or_default();
+        for topic_info in all_topics{
+            match svc.request_comment_topic(topic_info.0, prompt.to_string(), id.clone()).await{
+                Ok(_) => (),
+                Err(e) => {
+                    ic_cdk::println!("{}", e);
+                }
+            }    
         }
     }
 }
