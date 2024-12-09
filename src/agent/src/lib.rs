@@ -15,6 +15,7 @@ use metapower_framework::{
 use smith::MetaPowerMatrixAgentService;
 use std::cell::RefCell;
 use std::fmt::Write;
+use std::thread;
 
 static mut INITIALIZED: bool = false;
 static mut OWNER: Principal = Principal::anonymous();
@@ -408,7 +409,8 @@ async fn descrease_battery_power(amount: u64) {
             ).await{
                 Ok(()) => (),
                 Err((_, message)) => ic_cdk::println!("comment_topic error: {}", message),
-            }            
+            }
+            thread::sleep(std::time::Duration::from_secs(5));
         }    
     });
 }

@@ -2,7 +2,7 @@ pub mod id;
 pub mod runner;
 pub mod reverie;
 
-use std::cell::RefCell;
+use std::{cell::RefCell, thread};
 use candid::{CandidType, Principal};
 use ic_cdk::{call, caller};
 use ic_stable_structures::{memory_manager::{MemoryId, MemoryManager, VirtualMemory}, StableBTreeMap, DefaultMemoryImpl, RestrictedMemory};
@@ -515,6 +515,7 @@ pub async fn comment_topic(id: String){
                 ic_cdk::println!("{}", e);
             }
         }
+        thread::sleep(std::time::Duration::from_secs(5));
     }
 }
 
