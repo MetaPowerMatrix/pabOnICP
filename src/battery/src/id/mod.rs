@@ -10,7 +10,7 @@ use metapower_framework::{
 };
 
 use crate::reverie::memory::get_knowledge_summary;
-use crate::{PlainDoc, VecQuery, AGENT_CALLEE, VECTOR_CALLEE};
+use crate::{PlainDoc, TopicChatInfo, VecQuery, AGENT_CALLEE, VECTOR_CALLEE};
 
 #[derive(Debug, Clone)]
 pub struct MetaPowerMatrixBatteryService {
@@ -159,6 +159,30 @@ impl MetaPowerMatrixBatteryService {
                 return Err(e);
             }
         }
+
+        Ok(())
+    }
+    pub async fn request_comment_topic(
+        &self,
+        topic: String, prompt: String, contributor: String
+    ) -> std::result::Result<(), Error> {
+        let args = TopicChatInfo{
+            topic,
+            prompt,
+            contributor,
+            session: Default::default(),
+        };
+
+        let client = MetaPowerSvcClient::default();
+        match client.metapower_proxy_post::<TopicChatInfo, DataResponse>(
+                "/api/topic/comment",
+                args,
+            ).await{
+                Ok(_) => (),
+                Err(e) => {
+                    return Err(e);
+                }
+            }
 
         Ok(())
     }

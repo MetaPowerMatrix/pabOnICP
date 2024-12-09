@@ -34,6 +34,13 @@ struct BatterCallParams{
     arg: String,
 }
 
+#[derive(Deserialize, Debug, Default, Serialize)]
+struct TopicChatInfo {
+    topic: String,
+    prompt: String,
+    contributor: String,
+    session: String,
+}
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct DataResponse {
@@ -324,13 +331,11 @@ pub fn topics_of(id: String) -> String{
 }
 
 #[ic_cdk::query]
-pub fn sub_topics_of(id: String, topic: String) -> String{
+pub fn sub_topics_of(topic_id: String) -> String{
     _must_initialized();
 
-    let key = id + "/" + &topic;
-
     let topics = BATTERY_SUB_TOPICS.with(|topics| {
-        topics.borrow().get(&key).unwrap_or_default()
+        topics.borrow().get(&topic_id).unwrap_or_default()
     });
 
     topics
@@ -399,7 +404,9 @@ pub fn set_power_of(id: String, new_power: u64){
 
     BATTERY_POWER.with(|power_map| {
         let mut power_map = power_map.borrow_mut();
-        power_map.insert(id.clone(), new_power);
+        let mut old = power_map.get(&id).unwrap_or(1000);
+        let update = old - new_power;
+        power_map.insert(id.clone(), update);
     });
 
 }
@@ -465,19 +472,50 @@ pub fn set_topics_of(id: String, following: (String,String)){
 }
 
 #[ic_cdk::update]
-pub fn set_sub_topics_of(id: String, topic: String, comment: String){
+pub fn set_sub_topics_of(topic_id: String, comment: (String,String)){
     _must_initialized();
 
-    BATTERY_TOPICS.with(|topic_map| {
+    BATTERY_SUB_TOPICS.with(|topic_map| {
         let mut topic_map = topic_map.borrow_mut();
-        let key = id + "/" + &topic;
-        let prev_json = topic_map.get(&key).unwrap_or_default();
-        let mut prev = serde_json::from_str::<Vec<String>>(&prev_json).unwrap_or_default();
-        prev.push(comment);
-        let update = serde_json::to_string(&prev).unwrap_or_default();
-        topic_map.insert(key, update);
+        let value = serde_json::to_string(&comment).unwrap_or_default();
+        topic_map.insert(topic_id, value);
+    });
+}
+
+#[ic_cdk::update]
+pub async fn comment_topic(id: String){
+    _must_initialized();
+
+    let sum: u32 = id.bytes().map(|b| b as u32).sum();
+    let prompts = [
+        "your name is Jack, You are a chatbot that talk about a topic with funny responses.",
+        "your name is Marv, You are a chatbot that reluctantly talk about a topic with sarcastic responses",
+        "your name is Zuck, please always give the positive comment to the user's topic"
+    ];
+    let prompt = prompts[(sum % prompts.len() as u32) as usize];
+
+    let svc =  MetaPowerMatrixBatteryService::new(id.clone());
+    let mut topics: Vec<String> = vec![];
+    BATTERY_FOLLOWING.with(|following_map| {
+        let followings = following_map.borrow();
+        for (following_id,_) in followings.iter(){
+            BATTERY_TOPICS.with(|topic_map| {
+                if let Some(topic) = topic_map.borrow().get(&following_id){
+                    topics.push(topic);
+                }
+            });
+        }
     });
 
+    for topic in topics{
+        let topic_info = serde_json::from_str::<(String,String)>(&topic).unwrap_or_default();
+        match svc.request_comment_topic(topic_info.0, prompt.to_string(), id.clone()).await{
+            Ok(_) => (),
+            Err(e) => {
+                ic_cdk::println!("{}", e);
+            }
+        }
+    }
 }
 
 #[ic_cdk::update]

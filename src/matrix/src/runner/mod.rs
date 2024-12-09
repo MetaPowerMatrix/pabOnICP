@@ -2,8 +2,10 @@ use std::cell::RefCell;
 use std::sync::atomic::AtomicU64;
 use std::sync::atomic::Ordering;
 use std::time::Duration;
+use ic_cdk::call;
 use ic_cdk::caller;
 use ic_cdk_timers::TimerId;
+use crate::CALLEE;
 use crate::OWNER;
 use ic_stable_structures::memory_manager::{MemoryId, MemoryManager as MM, VirtualMemory};
 use ic_stable_structures::{DefaultMemoryImpl, RestrictedMemory, StableCell};
@@ -16,6 +18,7 @@ static INITIAL_CANISTER_BALANCE: AtomicU64 = AtomicU64::new(0);
 static CYCLES_USED: AtomicU64 = AtomicU64::new(0);
 
 const METADATA_PAGES: u64 = 196;
+const POWER_EACH_CYCLE: u64 = 1;
 
 thread_local! {
     /// The global vector to keep multiple timer IDs.
@@ -85,6 +88,24 @@ fn start_with_interval_secs(secs: u64) {
     // ic_cdk_timers::set_timer_interval(interval, || ic_cdk::spawn(async_function()));
 }
 
+async fn descrease_power() {
+        
+    let callee = CALLEE.with(|callee| *callee.borrow().as_ref().unwrap());
+
+    let (_,): ((),) = match call(
+        callee,
+        "descrease_battery_power",
+        (&POWER_EACH_CYCLE,),
+    ).await
+    {
+        Ok(()) => ((),),
+        Err((code, msg)) => {
+            ic_cdk::println!("{:?}: {}", code, msg);
+            ((),)
+        }
+    };
+}
+
 #[derive(Debug)]
 pub struct MatrixRunner{
     pub version: String,
@@ -110,6 +131,9 @@ impl MatrixRunner {
     pub fn run_loop(&self) {
         self.increase_tick();
         track_cycles_used();
+        ic_cdk::spawn(async {
+            descrease_power().await;
+        });
     }
 }
 
