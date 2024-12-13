@@ -15,7 +15,6 @@ use metapower_framework::{
 use smith::MetaPowerMatrixAgentService;
 use std::cell::RefCell;
 use std::fmt::Write;
-use std::thread;
 
 static mut INITIALIZED: bool = false;
 static mut OWNER: Principal = Principal::anonymous();
