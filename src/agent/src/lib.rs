@@ -391,33 +391,33 @@ async fn request_pato_by_ids(ids: Vec<String>) -> Result<NameResponse, String> {
 async fn descrease_battery_power(amount: u64) {
     _must_initialized();
 
-    let mut all_id: Vec<String> = vec![];
-    let callee = BATTERY.with(|callee| *callee.borrow().as_ref().unwrap());
-    BATTERY_CALLEE.with(|v| {
-        for pato in v.borrow().iter() {
-            all_id.push(pato.0);
-        }
-    });
-    ic_cdk::spawn( async move {
-        for id in all_id {
-            match call(
-                callee,
-                "set_power_of",
-                (id.clone(), amount),
-            ).await{
-                Ok(()) => (),
-                Err((_, message)) => ic_cdk::println!("descrease_battery_power error: {}", message),
-            }
-            match call(
-                callee,
-                "comment_topic",
-                (id.clone(),),
-            ).await{
-                Ok(()) => (),
-                Err((_, message)) => ic_cdk::println!("comment_topic error: {}", message),
-            }
-        }    
-    });
+    // let mut all_id: Vec<String> = vec![];
+    // let callee = BATTERY.with(|callee| *callee.borrow().as_ref().unwrap());
+    // BATTERY_CALLEE.with(|v| {
+    //     for pato in v.borrow().iter() {
+    //         all_id.push(pato.0);
+    //     }
+    // });
+    // ic_cdk::spawn( async move {
+    //     for id in all_id {
+    //         match call(
+    //             callee,
+    //             "set_power_of",
+    //             (id.clone(), amount),
+    //         ).await{
+    //             Ok(()) => (),
+    //             Err((_, message)) => ic_cdk::println!("descrease_battery_power error: {}", message),
+    //         }
+    //         match call(
+    //             callee,
+    //             "comment_topic",
+    //             (id.clone(),),
+    //         ).await{
+    //             Ok(()) => (),
+    //             Err((_, message)) => ic_cdk::println!("comment_topic error: {}", message),
+    //         }
+    //     }    
+    // });
 }
 
 #[ic_cdk::update]

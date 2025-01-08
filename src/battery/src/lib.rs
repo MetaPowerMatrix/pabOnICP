@@ -405,7 +405,7 @@ pub fn set_power_of(id: String, new_power: u64){
     BATTERY_POWER.with(|power_map| {
         let mut power_map = power_map.borrow_mut();
         let old = power_map.get(&id).unwrap_or(1000);
-        let update = old + new_power;
+        let update = old - new_power;
         power_map.insert(id.clone(), update);
     });
 
