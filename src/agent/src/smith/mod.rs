@@ -8,7 +8,7 @@ use metapower_framework::{
     AirdropRequest, ChangeBalanceRequest, EmptyRequest, FollowKolRequest, KolRegistrationRequest,
     KolRelations, NamePros, NameRequest, NameResponse, PatoInfo, PatoInfoResponse,
     PopulationRegistrationRequest, SimpleRequest, SimpleResponse, TokenRequest, TokenResponse,
-    UserActiveRequest,
+    UserActiveRequest, XFILES_SERVER,
 };
 use metapower_framework::OFFICIAL_PATO;
 use sha1::Digest;
@@ -127,37 +127,37 @@ impl MetaPowerMatrixAgentService {
         println!("select_id_table sql: {}", select_id_table);
 
         // let avatar_link = format!("{}/avatar/{}/avatar.png", XFILES_SERVER, id);
-        // let callee = BATTERY.with(|callee| *callee.borrow().as_ref().unwrap());
-        // let (avatar_link,): (String,) = match call(
-        //     callee,
-        //     "avatar_of",
-        //     (id.clone(),),
-        // )
-        // .await
-        // {
-        //     Ok(response) => response,
-        //     Err((code, msg)) => return Err(anyhow!("{}: {}", code as u8, msg)),
-        // };
-        // let (cover,): (String,) = match call(
-        //     callee,
-        //     "cover_of",
-        //     (id.clone(),),
-        // )
-        // .await
-        // {
-        //     Ok(response) => response,
-        //     Err((code, msg)) => return Err(anyhow!("{}: {}", code as u8, msg)),
-        // };
-        // let (tags,): (String,) = match call(
-        //     callee,
-        //     "tags_of",
-        //     (id.clone(),),
-        // )
-        // .await
-        // {
-        //     Ok(response) => response,
-        //     Err((code, msg)) => return Err(anyhow!("{}: {}", code as u8, msg)),
-        // };
+        let callee = BATTERY.with(|callee| *callee.borrow().as_ref().unwrap());
+        let (avatar_link,): (String,) = match call(
+            callee,
+            "avatar_of",
+            (id.clone(),),
+        )
+        .await
+        {
+            Ok(response) => response,
+            Err((code, msg)) => return Err(anyhow!("{}: {}", code as u8, msg)),
+        };
+        let (cover,): (String,) = match call(
+            callee,
+            "cover_of",
+            (id.clone(),),
+        )
+        .await
+        {
+            Ok(response) => response,
+            Err((code, msg)) => return Err(anyhow!("{}: {}", code as u8, msg)),
+        };
+        let (tags,): (String,) = match call(
+            callee,
+            "tags_of",
+            (id.clone(),),
+        )
+        .await
+        {
+            Ok(response) => response,
+            Err((code, msg)) => return Err(anyhow!("{}: {}", code as u8, msg)),
+        };
         // let (followers_json,): (String,) = match call(
         //     callee,
         //     "follower_of",
@@ -181,16 +181,16 @@ impl MetaPowerMatrixAgentService {
         // };
         // let followings = serde_json::from_str::<Vec<(String,String)>>(&following_json).unwrap_or_default();
 
-        // let (balance,): (f32,) = match call(
-        //     callee,
-        //     "balance_of",
-        //     (id.clone(),),
-        // )
-        // .await
-        // {
-        //     Ok(response) => response,
-        //     Err((code, msg)) => return Err(anyhow!("{}: {}", code as u8, msg)),
-        // };
+        let (balance,): (f32,) = match call(
+            callee,
+            "balance_of",
+            (id.clone(),),
+        )
+        .await
+        {
+            Ok(response) => response,
+            Err((code, msg)) => return Err(anyhow!("{}: {}", code as u8, msg)),
+        };
 
         let mut pato_info: PatoInfoResponse = PatoInfoResponse::default();
         match MetapowerSqlite3::query_db(
@@ -208,11 +208,11 @@ impl MetaPowerMatrixAgentService {
                         name,
                         sn,
                         registered_datetime,
+                        balance,
+                        tags: tags.split(',').map(|t| t.to_string()).collect(),
+                        avatar: avatar_link,
+                        cover,
                         ..Default::default()
-                        // balance,
-                        // tags: tags.split(',').map(|t| t.to_string()).collect(),
-                        // avatar: avatar_link,
-                        // cover,
                         // followers,
                         // followings,
                     };
