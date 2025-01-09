@@ -193,34 +193,34 @@ impl MetaPowerMatrixAgentService {
         };
 
         let mut pato_info: PatoInfoResponse = PatoInfoResponse::default();
-        match MetapowerSqlite3::query_db(
-            &select_id_table,
-            vec!["id", "name", "registered_at", "sn"],
-        ) {
-            Ok(records) => {
-                if !records.is_empty() {
-                    let record = records.first().unwrap();
-                    let name = record.get("name").unwrap().to_string();
-                    let registered_datetime = record.get("registered_at").unwrap().to_string();
-                    let sn = record.get("sn").unwrap().parse::<i64>().unwrap();
-                    pato_info = PatoInfoResponse {
-                        id: id.clone(),
-                        name,
-                        sn,
-                        registered_datetime,
-                        balance,
-                        tags: tags.split(',').map(|t| t.to_string()).collect(),
-                        avatar: avatar_link,
-                        cover,
-                        followers,
-                        followings,
-                    };
-                }
-            }
-            Err(e) => {
-                return Err(e);
-            }
-        }
+        // match MetapowerSqlite3::query_db(
+        //     &select_id_table,
+        //     vec!["id", "name", "registered_at", "sn"],
+        // ) {
+        //     Ok(records) => {
+        //         if !records.is_empty() {
+        //             let record = records.first().unwrap();
+        //             let name = record.get("name").unwrap().to_string();
+        //             let registered_datetime = record.get("registered_at").unwrap().to_string();
+        //             let sn = record.get("sn").unwrap().parse::<i64>().unwrap();
+        //             pato_info = PatoInfoResponse {
+        //                 id: id.clone(),
+        //                 name,
+        //                 sn,
+        //                 registered_datetime,
+        //                 balance,
+        //                 tags: tags.split(',').map(|t| t.to_string()).collect(),
+        //                 avatar: avatar_link,
+        //                 cover,
+        //                 followers,
+        //                 followings,
+        //             };
+        //         }
+        //     }
+        //     Err(e) => {
+        //         return Err(e);
+        //     }
+        // }
 
         Ok(pato_info)
     }
